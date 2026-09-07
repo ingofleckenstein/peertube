@@ -4,6 +4,7 @@ namespace selfsein\peertube\jobs;
 
 use humhub\modules\queue\ActiveJob;
 use selfsein\peertube\components\AdminAlert;
+use selfsein\peertube\components\LiveError;
 use selfsein\peertube\components\PeerTubeClient;
 use selfsein\peertube\components\VideoPasswordVault;
 use selfsein\peertube\models\LiveSession;
@@ -53,6 +54,15 @@ class FinalizeLiveReplayJob extends ActiveJob
             $this->convert($session, $video, $password);
         } catch (\Throwable $exception) {
             Yii::error($exception, 'peertube');
+            if (LiveError::isPeerTubeNotFound($exception)) {
+                $session->updateAttributes([
+                    'status' => 'failed',
+                    'last_error' => 'Die PeerTube-Livequelle wurde nicht gefunden. Beim nächsten Start wird eine neue Quelle angelegt.',
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+                AdminAlert::raise('PeerTube-Livequelle fehlt: Session ' . $session->id, $exception);
+                return;
+            }
             if ($this->attempt < 20) { $this->retry($session, (string)$session->status, $this->attempt + 1); return; }
             $session->updateAttributes(['status'=>'failed','last_error'=>mb_substr($exception->getMessage(),0,1000),'updated_at'=>date('Y-m-d H:i:s')]);
             AdminAlert::raise('Live-Aufzeichnung konnte nicht in die Mediathek übernommen werden: Session '.$session->id, $exception);

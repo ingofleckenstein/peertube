@@ -38,6 +38,11 @@ class LiveError
         return '[' . $code . '] ' . $message;
     }
 
+    public static function isPeerTubeNotFound(\Throwable $error): bool
+    {
+        return self::code($error) === 'PT-LIVE-HTTP-404';
+    }
+
     /** Link to PeerTube 8.2.x management; never include credentials or arbitrary schemes. */
     public static function managementUrl(\Throwable $error, string $baseUrl): ?string
     {

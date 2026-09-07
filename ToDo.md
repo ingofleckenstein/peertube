@@ -1,3 +1,9 @@
+# Ergebnis: Fehlende PeerTube-Livequelle (2.8.10)
+
+Am 7. September 2026 meldete PeerTube nach einem Neustart für die lokal gespeicherte Livequellen-UUID HTTP 404. OBS konnte den RTMP-Port erreichen, wurde aber nach dem Handshake wieder getrennt, weil der dazugehörige Schlüssel nicht mehr zu einer bestehenden PeerTube-Livequelle gehörte. Beim nächsten Start ersetzt das Modul eine nicht gefundene dauerhafte Quelle automatisch. Bereits blockierte Sitzungen schlagen bei HTTP-404 kontrolliert fehl und blockieren keinen neuen Start.
+
+Die Ursache für die fehlende PeerTube-Quelle selbst liegt auf der PeerTube-Seite; die Korrektur löscht keine weiteren Quellen und verändert keine Live-Limits. Nach Installation ist ein kurzer neuer OBS-Test mit der neu angezeigten Quelle erforderlich.
+
 # Ergebnis: Livestream-Fehlercodes (2.8.9)
 
 Das aktuelle app.log meldet PeerTube HTTP 403 mit `max_user_lives_limit_reached`.

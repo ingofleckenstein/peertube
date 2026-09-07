@@ -104,6 +104,7 @@ namespace {
     foreach ([400, 401, 403, 404, 429, 500, 503] as $status) {
         check($liveError::code(new \RuntimeException("PeerTube API ($status): secret")) === "PT-LIVE-HTTP-$status", 'HTTP status preserved');
     }
+    check($liveError::isPeerTubeNotFound(new \RuntimeException('PeerTube API (404): secret')), 'Missing PeerTube source classified');
     check($liveError::code(new \RuntimeException('secret')) === 'PT-LIVE-UNKNOWN', 'Unknown origin not invented');
     check($liveError::managementUrl($quota, 'https://video.example.org/') === 'https://video.example.org/my-library/videos', 'Management route uses configured host');
     foreach (['javascript:alert(1)', '//evil.example', 'https://user:secret@example.org', "https://example.org\n", 'https://example.org?token=secret', 'https://example.org\\@evil.org'] as $unsafe) {

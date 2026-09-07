@@ -258,27 +258,44 @@ class LiveController extends ContentContainerController
         $source = LiveSource::findOne(['user_id' => Yii::$app->user->id]);
         $client = new PeerTubeClient();
         if ($source) {
-            $client->update((string)$source->peertube_uuid, $form->title, (string)$form->description, $source->getVideoPassword());
-            $client->tryUseSmallLiveLatency((string)$source->peertube_uuid);
-            return $source;
+            try {
+                $client->update((string)$source->peertube_uuid, $form->title, (string)$form->description, $source->getVideoPassword());
+                $client->tryUseSmallLiveLatency((string)$source->peertube_uuid);
+                return $source;
+            } catch (\Throwable $exception) {
+                if (!\selfsein\peertube\components\LiveError::isPeerTubeNotFound($exception)) {
+                    throw $exception;
+                }
+                // A removed PeerTube video leaves behind a locally encrypted but
+                // unusable RTMP key. Replace it; never try to revive the old key.
+                Yii::warning(['message' => 'PeerTube-Livequelle nicht gefunden; erstelle Ersatzquelle.', 'userId' => (int)Yii::$app->user->id], 'peertube');
+            }
         }
+
+        return $this->createLiveSource($source, $client, $form);
+    }
+
+    private function createLiveSource(?LiveSource $source, PeerTubeClient $client, LiveForm $form): LiveSource
+    {
         $password = VideoPasswordVault::generate();
         $result = $client->createPermanentLive($form->title, (string)$form->description,
             (int)Yii::$app->getModule('peertube')->settings->get('channelId'), $password);
         $video = $result['video']; $live = $result['live'];
         $remoteId = (string)($video['id'] ?? '');
-        $source = new LiveSource([
+        $source ??= new LiveSource();
+        $source->setAttributes([
             'user_id' => Yii::$app->user->id,
             'peertube_id' => (int)$remoteId,
             'peertube_uuid' => (string)($video['uuid'] ?? ''),
             'rtmp_url_encrypted' => VideoPasswordVault::encrypt((string)($live['rtmpsUrl'] ?? $live['rtmpUrl'])),
             'stream_key_encrypted' => VideoPasswordVault::encrypt((string)$live['streamKey']),
             'password_encrypted' => VideoPasswordVault::encrypt($password),
-            'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
+            'created_at' => $source->isNewRecord ? date('Y-m-d H:i:s') : $source->created_at,
+            'updated_at' => date('Y-m-d H:i:s'),
         ]);
         if (!$source->save()) {
             try { $client->delete($remoteId); } catch (\Throwable $e) { Yii::error($e, 'peertube'); }
-            throw new \RuntimeException('Die dauerhafte Livestream-Quelle konnte nicht gespeichert werden.');
+            throw new \RuntimeException('Die dauerhafte Ersatz-Livestream-Quelle konnte nicht gespeichert werden.');
         }
         return $source;
     }

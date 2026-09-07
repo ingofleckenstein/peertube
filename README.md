@@ -10,10 +10,14 @@ Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betrieb
 
 | Bestandteil | Stand / Voraussetzung |
 | --- | --- |
-| Dieses HumHub-Modul | **2.8.8** laut `module.json` |
+| Dieses HumHub-Modul | **2.8.10** laut `module.json` |
 | HumHub | Referenz **CE 1.18.5**; Metadatenminimum **1.18.3** |
 | PeerTube-Server | Referenz **8.2.4**; bisherige Entwicklung auf 8.2.x ausgerichtet |
 | PeerTube-Begleitplugin | **1.2.1**, für Direktupload auf PeerTube installieren |
+
+## Version 2.8.10: Wiederherstellung fehlender Livequellen
+
+Wenn die dauerhafte PeerTube-Livequelle eines Mitglieds auf PeerTube nicht mehr existiert, wird sie beim nächsten Livestream-Start neu angelegt. Dadurch werden eine veraltete lokale Stream-URL und ein veralteter Schlüssel nicht weiterverwendet. Eine bereits davon betroffene HumHub-Sitzung wird bei PeerTube-HTTP-404 sofort als fehlgeschlagen markiert und blockiert keinen neuen Start. Die alte PeerTube-Quelle wird nicht gelöscht; sie wurde vom Server bereits nicht mehr gefunden.
 
 ## Version 2.8.8: Beschreibung und Live-Limits
 
