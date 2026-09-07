@@ -61,7 +61,7 @@ class PeerTubeClient
 
     public function initResumableUpload(string $filename, string $mimeType, int $size, string $title, string $description, int $channelId, string $videoPassword): array
     {
-        if (!function_exists('curl_init')) {
+        if (!function_exists(__NAMESPACE__ . '\\curl_init') && !function_exists('curl_init')) {
             throw new RuntimeException('Die PHP-cURL-Erweiterung fehlt.');
         }
         $token = $this->accessToken();
@@ -307,7 +307,7 @@ class PeerTubeClient
 
     private function requestJson(string $method, string $path, array $payload, string $token): array
     {
-        if (!function_exists('curl_init')) {
+        if (!function_exists(__NAMESPACE__ . '\\curl_init') && !function_exists('curl_init')) {
             throw new RuntimeException('Die PHP-cURL-Erweiterung fehlt.');
         }
         $body = '';
@@ -377,7 +377,7 @@ class PeerTubeClient
 
     private function request(string $method, string $path, ?array $fields = null, ?string $token = null, bool $multipart = false): array
     {
-        if (!function_exists('curl_init')) {
+        if (!function_exists(__NAMESPACE__ . '\\curl_init') && !function_exists('curl_init')) {
             throw new RuntimeException('Die PHP-cURL-Erweiterung fehlt.');
         }
         if ($this->baseUrl === '') {

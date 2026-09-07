@@ -3,7 +3,7 @@
 namespace yii\helpers {
     class FileHelper { public static function createDirectory($path, $mode = 0775) { if (!is_dir($path)) mkdir($path, $mode, true); } }
 }
-namespace humhub\modules\content\components { class ContentContainerController {} }
+namespace humhub\modules\content\components { class ContentContainerController { public $contentContainer; } }
 namespace yii\web {
     class ForbiddenHttpException extends \RuntimeException {}
     class NotFoundHttpException extends \RuntimeException {}
@@ -22,6 +22,7 @@ namespace selfsein\peertube\models {
     }
 }
 namespace selfsein\peertube\components {
+    function mb_strlen($value) { return strlen($value); }
     function curl_init($url) { return (object)['url' => $url, 'options' => []]; }
     function curl_setopt_array($handle, $options) { $handle->options = $options; }
     function curl_exec($handle) {
@@ -39,6 +40,13 @@ namespace selfsein\peertube\components {
     function curl_close($handle) {}
 }
 namespace {
+    // The test replaces cURL with namespace-local functions and must therefore
+    // also run on a PHP CLI installation without the cURL extension.
+    foreach (['CURLOPT_RETURNTRANSFER', 'CURLOPT_CUSTOMREQUEST', 'CURLOPT_HTTPHEADER', 'CURLOPT_CONNECTTIMEOUT', 'CURLOPT_TIMEOUT', 'CURLOPT_POSTFIELDS', 'CURLOPT_HEADERFUNCTION', 'CURLOPT_FOLLOWLOCATION', 'CURLOPT_PROTOCOLS', 'CURLOPT_WRITEFUNCTION', 'CURLINFO_RESPONSE_CODE', 'CURLPROTO_HTTPS'] as $index => $constant) {
+        if (!defined($constant)) {
+            define($constant, 10000 + $index);
+        }
+    }
     class Yii {
         public static $app;
         public static function getAlias($alias) { return sys_get_temp_dir() . '/peertube-regression-' . getmypid(); }
