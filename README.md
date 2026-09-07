@@ -254,3 +254,31 @@ Beim normalen Deaktivieren bleiben die lokalen Daten erhalten (`Module::disable(
 
 - Leere Streamformulare erhalten keinen veraltenden Vergleichszustand mehr; dynamische versteckte Felder können den Formularwächter daher nicht erneut auslösen.
 - Der Schutz wird unmittelbar vor der ersten echten Texteingabe, Dateiauswahl oder sichtbaren Formularänderung wieder aktiviert.
+
+### Livestream-Diagnose ab 2.8.9
+
+Fehler beim Vorbereiten der Livequelle enthalten einen stabilen Fehlercode und eine
+individuelle Referenz. Die Referenz steht auch im HumHub-Log unter `peertube.live`,
+zusammen mit Phase, geladenen Codeversionen und Ursprungsdatei/-zeile. Diese
+Diagnoseeinträge enthalten keine API-Antworttexte, Zugangsdaten oder Trace-Argumente.
+
+`PT-LIVE-403-USER-LIMIT` bedeutet: Das technische PeerTube-Konto hat sein
+Livestream-Limit erreicht. Vorhandene Livequellen und Kontolimit administrativ
+prüfen; das Modul löscht keine Quellen und verändert keine Serverlimits.
+`PT-LIVE-403-INSTANCE-LIMIT` bezeichnet das Instanzlimit. `PT-LIVE-HTTP-<Status>`
+erhält den von PeerTube gemeldeten HTTP-Status; `PT-LIVE-DB` bezeichnet lokale
+Datenbankfehler, `PT-LIVE-UNKNOWN` eine nicht sicher zuordenbare Ursache.
+
+Das Startformular zeigt Modul-, Controller- und Fehlerbehandlungsversion. Nach
+vollständiger Aktualisierung müssen alle drei `2.8.9` anzeigen. Unterschiede
+weisen auf gemischte Dateien oder veralteten PHP-OPcache hin: Installation prüfen
+und gegebenenfalls PHP/OPcache über die Serververwaltung neu laden. Die tatsächliche
+Ursache des bisher allgemeinen Textes ist anhand des Produktionslogs nicht bewiesen.
+Zusätzlich steht die Fehlermeldung in einer serverseitigen Fehlerzusammenfassung.
+
+Bei Limitfehlern führt ein Link zur PeerTube-Videoverwaltung (`/my-library/videos`,
+gegen PeerTube 8.2.4 geprüft). Dort mit dem technischen Konto anmelden und
+nicht mehr benötigte Livequellen über deren Menü entfernen. Der Link selbst
+löscht nichts. Eine entfernte Quelle verliert ihre Streaming-Zugangsdaten.
+Die Verwaltung des gemeinsamen technischen Kontos ist der Administration
+vorbehalten; der Link überträgt keine Anmeldung oder Zugangsdaten.

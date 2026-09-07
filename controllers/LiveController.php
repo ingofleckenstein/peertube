@@ -21,6 +21,8 @@ use humhub\modules\file\models\File;
 
 class LiveController extends ContentContainerController
 {
+    public const DIAGNOSTICS_VERSION = '2.8.9';
+
     public function behaviors(): array
     {
         $behaviors = parent::behaviors();
@@ -50,9 +52,15 @@ class LiveController extends ContentContainerController
             try {
                 $source = $this->sourceForCurrentUser($model);
             } catch (\Throwable $exception) {
-                Yii::error($exception, 'peertube');
-                $model->addError('title', \selfsein\peertube\components\LiveError::message($exception));
-                return $this->render('start', ['model' => $model]);
+                $model->addError('title', \selfsein\peertube\components\LiveError::report(
+                    $exception, 'prepare-source', self::DIAGNOSTICS_VERSION
+                ));
+                return $this->render('start', [
+                    'model' => $model,
+                    'liveManagementUrl' => \selfsein\peertube\components\LiveError::managementUrl(
+                        $exception, (string)Yii::$app->getModule('peertube')->settings->get('baseUrl', '')
+                    ),
+                ]);
             }
             $now = date('Y-m-d H:i:s');
             $scheduledAt = null;

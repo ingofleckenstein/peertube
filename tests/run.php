@@ -43,6 +43,8 @@ namespace {
         public static $app;
         public static function getAlias($alias) { return sys_get_temp_dir() . '/peertube-regression-' . getmypid(); }
         public static function warning(...$args) {}
+        public static $errors = [];
+        public static function error($data, $category) { self::$errors[] = [$data, $category]; }
     }
     class Cache {
         public $data = []; public $now = 0;
@@ -87,6 +89,26 @@ namespace {
     check(str_contains(\selfsein\peertube\components\LiveError::message(new \RuntimeException('max_user_lives_limit_reached')), 'technischen PeerTube-Kontos'), 'User live quota explanation');
     check(str_contains(\selfsein\peertube\components\LiveError::message(new \RuntimeException('max_instance_lives_limit_reached')), 'PeerTube-Servers'), 'Server live quota explanation');
     check(!str_contains(\selfsein\peertube\components\LiveError::message(new \RuntimeException('secret-payload')), 'secret-payload'), 'No raw remote errors in UI');
+    $quota = new \RuntimeException('PeerTube API (403): {"type":"https://docs.joinpeertube.org/api-rest-reference.html#section/Errors/max_user_lives_limit_reached","detail":"Cannot create this live because the max user lives limit is reached.","status":403,"code":"max_user_lives_limit_reached"}');
+    $liveError = \selfsein\peertube\components\LiveError::class;
+    check($liveError::code($quota) === 'PT-LIVE-403-USER-LIMIT', 'Actual production response classified');
+    check($liveError::code(new \RuntimeException('wrapper', 0, $quota)) === 'PT-LIVE-403-USER-LIMIT', 'Nested origin classified');
+    foreach ([400, 401, 403, 404, 429, 500, 503] as $status) {
+        check($liveError::code(new \RuntimeException("PeerTube API ($status): secret")) === "PT-LIVE-HTTP-$status", 'HTTP status preserved');
+    }
+    check($liveError::code(new \RuntimeException('secret')) === 'PT-LIVE-UNKNOWN', 'Unknown origin not invented');
+    check($liveError::managementUrl($quota, 'https://video.example.org/') === 'https://video.example.org/my-library/videos', 'Management route uses configured host');
+    foreach (['javascript:alert(1)', '//evil.example', 'https://user:secret@example.org', "https://example.org\n", 'https://example.org?token=secret', 'https://example.org\\@evil.org'] as $unsafe) {
+        check($liveError::managementUrl($quota, $unsafe) === null, 'Unsafe management URL rejected');
+    }
+    check($liveError::managementUrl(new \RuntimeException('unknown'), 'https://example.org') === null, 'No irrelevant recovery link');
+    $reported = $liveError::report($quota, 'prepare-source', '2.8.9');
+    $entry = Yii::$errors[0];
+    check(str_contains($reported, $entry[0]['reference']) && strlen($entry[0]['reference']) === 12, 'Visible reference matches log');
+    check($entry[0]['code'] === 'PT-LIVE-403-USER-LIMIT' && $entry[1] === 'peertube.live', 'Structured error code and category');
+    $liveError::report(new \RuntimeException('secret token <script>'), 'prepare-source', '2.8.9');
+    check(!str_contains(json_encode(Yii::$errors), 'secret'), 'No sensitive exception payload logged');
+    check(Yii::$errors[0][0]['reference'] !== Yii::$errors[1][0]['reference'], 'Each occurrence has own reference');
     $GLOBALS['requests'] = []; $client->getCachedVideo('test'); $client->getCachedVideo('test'); check(count($GLOBALS['requests']) === 1, 'Metadata cache');
     $client->getVideo('test'); check(count($GLOBALS['requests']) === 2, 'Fresh verification bypasses cache');
     $thumb = '\\selfsein\\peertube\\components\\ThumbnailCache';
