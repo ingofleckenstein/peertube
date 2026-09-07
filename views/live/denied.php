@@ -1,0 +1,1 @@
+<div class="panel panel-default"><div class="panel-heading"><strong>Livestream nicht verfügbar</strong></div><div class="panel-body"><div class="alert alert-info"><i class="fa fa-lock"></i> Du hast in diesem Bereich keine Berechtigung, einen Livestream zu starten.</div></div></div>

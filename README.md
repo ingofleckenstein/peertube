@@ -1,0 +1,209 @@
+# PeerTube Mediathek für HumHub
+
+Version 2.6.1 für HumHub Community Edition 1.18.3 und PeerTube 8.2.x.
+
+Version 2.6.1 erkennt eine noch offene PeerTube-Live-Sitzung unabhängig von unterschiedlichen Systemzeitzonen als aktives Sendesignal. Das Öffnen beziehungsweise automatische Aktualisieren des Live-Studios startet außerdem eine ausgefallene oder abgelaufene Prüfkette selbstheilend neu; veraltete Queue-Aufträge werden weiterhin über die Prüfgeneration entwertet.
+
+Version 2.6.0 erkennt Start und Ende eines OBS-Streams automatisch anhand der PeerTube-Live-Sitzung. Das Live-Studio aktualisiert seinen Status selbstständig; die manuelle Freischaltung entfällt. Während einer laufenden Sendung wird zeitlich unbegrenzt weiter überwacht, nach dem Ende wartet die bestehende Replay-Verarbeitung auf die fertige Aufzeichnung.
+
+Version 2.5.2 übernimmt beim Erzeugen des Mediathek-Eintrags Autor und Bearbeiter ausdrücklich aus dem ursprünglichen Livebeitrag. Das ist erforderlich, weil HumHub-Queue-Worker keine angemeldete Benutzeridentität besitzen.
+
+Version 2.5.1 entfernt einen von PeerTube 8.2 am Live-Sessions-Endpunkt abgelehnten Sortierwert und sortiert Replay-Sitzungen stattdessen lokal. Eine persistente Prüfgeneration stellt außerdem sicher, dass parallele oder veraltete Queue-Aufträge keine mehrfachen Prüfketten erzeugen. Dafür ist die Migration `m260905_000014_live_poll_generation` erforderlich.
+
+Version 2.5.0 ergänzt die automatische Replay-Verarbeitung. Ein Queue-Auftrag prüft die Sitzungs-Historie der permanenten PeerTube-Livequelle, übernimmt die eindeutig zugehörige fertige Aufzeichnung, versieht sie mit dem Community-Passwort und wandelt den temporären Livestream-Inhalt atomar in ein normales Mediathek-Video um. Content-ID, Kommentare und Reaktionen des ursprünglichen Livebeitrags bleiben erhalten. Dafür ist die Migration `m260905_000013_live_replay` erforderlich.
+
+Version 2.4.3 übermittelt das Video-Passwort bereits beim initialen Erstellen einer permanenten Livequelle. PeerTube verlangt dies zwingend, wenn die Livequelle von Beginn an passwortgeschützt angelegt wird.
+
+Version 2.4.2 verwendet für noch nicht erzeugte Live-Aufzeichnungen PeerTubes zulässige private Replay-Sichtbarkeit. PeerTube 8.2 erlaubt an dieser Stelle noch keine Passwort-Sichtbarkeit; der Livestream selbst bleibt passwortgeschützt.
+
+Version 2.4.1 korrigiert den Namespace des HumHub-Formular-Widgets in der Livestream-Vorbereitung. Dadurch lässt sich „Live gehen“ ohne internen Serverfehler öffnen.
+
+Version 2.4.0 ergänzt die erste Livestream-Ausbaustufe. Pro Benutzer wird eine dauerhaft wiederverwendbare PeerTube-Livequelle angelegt; RTMPS-Adresse, Streamschlüssel und Videopasswort werden verschlüsselt in HumHub gespeichert. Berechtigte Mitglieder können in Profilen oder freigegebenen Spaces eine Sendung vorbereiten, sie nach dem Start in OBS als „LIVE“ kennzeichnen und anschließend beenden. Dazu kommen eine globale Gruppenberechtigung und eine zusätzliche Space-Berechtigung „Livestreams starten“. Nach dem Update ist die Migration `m260904_000012_live_streaming` auszuführen.
+
+Die automatische technische Erkennung von Sendestart und Sendeende sowie die Übernahme der fertigen Aufzeichnung als normal bearbeitbares Mediathek-Video sind bewusst noch nicht Bestandteil dieser ersten Stufe.
+
+Version 2.3.2 behebt den Stream-Abbruch durch den ungültigen Aufruf einer nicht vorhandenen `ContentActiveRecord::canEdit()`-Elternmethode. Zusätzlich berücksichtigt Player, Detailansicht und Passwort-Endpunkt optional die sichere Share-Zugriffsprüfung aus Share content 1.2.0. Ein privates Profilvideo bleibt privat und wird nur für Nutzer abspielbar, die mindestens einen veröffentlichten, nicht archivierten und für sie lesbaren Share besitzen.
+
+Version 2.3.1 behebt einen Fehler beim Abschluss großer Direktuploads: PeerTube darf Titel und Beschreibung zunächst trimmen oder Unicode-normalisieren, ohne dass HumHub das bereits vollständig übertragene Video fälschlich löscht. Die vom PeerTube-Plugin signierte Abschlussbestätigung bleibt die Identitätsprüfung; anschließend setzt HumHub die gewünschten Metadaten und kontrolliert sie normalisiert mit kurzen Wiederholungsversuchen.
+
+Version 2.3.0 ersetzt einen starren Browser-Request-Zeitraum durch einen fortschrittsabhängigen Inaktivitätswächter. Solange Uploaddaten fließen, darf eine große Datei lange übertragen werden. Erst nach 60 Sekunden ohne Fortschritt wird der aktuelle 8-MiB-Block abgebrochen und automatisch erneut gesendet. Das verschlüsselte Upload-Ticket behält aus Sicherheitsgründen seine zweistündige Maximalgültigkeit.
+
+Version 2.2.9 rendert den geschützten Player containerneutral: Bei persönlichen Videos wird die Passwort-Route jetzt über den HumHub-Profilcontainer statt über eine nicht vorhandene Space-Beziehung erzeugt. Außerdem liest die kanonische Medien-URL den optionalen Zeitstempel nur in Web-Anfragen; Queue- und E-Mail-Jobs können Profilvideos dadurch ohne `yii\\console\\Request::get()`-Fehler verarbeiten.
+
+Version 2.2.8 synchronisiert die HumHub-Sichtbarkeit mit der ausdrücklichen Auswahl „Im Stream veröffentlichen“. Dadurch erkennt das optionale Modul „Share content“ neue, bearbeitete und nach der Migration auch bestehende Streamvideos als teilbare HumHub-Inhalte und zeigt seinen normalen „Teilen“-Link neben Kommentaren und Reaktionen an. Reine Mediathek-Einträge bleiben private HumHub-Inhalte; es entsteht weiterhin keine Abhängigkeit vom Share-Modul.
+
+Version 2.2.7 setzt Click-to-Load vollständig um: In Mediathek-Karten und hinter Content Warnings wird vor dem Nutzerklick kein leeres iframe mehr erzeugt. Der ausgewählte PeerTube-Player wird erst nach dem Klick in den DOM eingefügt. Das reduziert Feature-Policy-Warnungen, DOM-Last und vorzeitige Verbindungen.
+
+Version 2.2.6 entfernt die für Click-to-Load nicht benötigten iframe-Freigaben `autoplay`, `encrypted-media` und `clipboard-write`. Vollbild und Picture-in-Picture bleiben freigegeben; Firefox erzeugt dadurch keine Feature-Policy-Warnung pro Videokarte mehr.
+
+Version 2.2.5 synchronisiert für ältere Medieneinträge einmalig den tatsächlichen `thumbnailPath` aus der PeerTube-API und speichert die vollständige URL lokal. PeerTubes Thumbnail-Dateiname wird nicht mehr aus der Video-UUID abgeleitet.
+
+Version 2.2.4 verwendet für ältere Medieneinträge ohne gespeicherten Thumbnail-Pfad PeerTubes aktuellen `/lazy-static/thumbnails/`-Pfad. Dadurch werden die Startbilder in der Click-to-Load-Ansicht wieder geladen.
+
+Version 2.2.3 korrigiert die HumHub-User-Klasse der Uploaderbeziehung. Mediatheken mit vorhandenen Medien können damit den Namen des Uploaders wieder fehlerfrei darstellen.
+
+Version 2.2.2 verhindert, dass alte oder unvollständig verknüpfte Medieneinträge die gesamte Mediathek blockieren. Betroffene Einträge werden protokolliert und Admins erhalten einen verständlichen Hinweis. Die Ordneransicht bleibt außerdem kompatibel, wenn die Migration für frei wählbare Ordnersymbole noch nicht ausgeführt wurde.
+
+Version 2.2.1 stellt die globale Uploadberechtigung standardmäßig auf „Verweigern“. Erst eine Freigabe in der jeweiligen HumHub-Benutzergruppe aktiviert Video-Reiter und Dashboard-Aktion. Direkte Aufrufe des Uploadformulars zeigen statt einer technischen Fehlerseite eine verständliche Erklärung; direkte Upload-API-Aufrufe antworten mit einer eindeutigen JSON-Meldung und HTTP 403.
+
+Version 2.2.0 ergänzt über HumHubs Widget-Events einen sichtbaren „Video hochladen“-Button am kompakten Dashboard-Composer. Im Datei-/Wolkenmenü bleibt der Video-Upload entfernt. Aktivierte Benutzerprofile erhalten außerdem einen eigenen Menüpunkt „Mediathek“. Reiter, Menü, Dashboard-Aktion und Endpunkte folgen derselben zentralen Uploadberechtigung.
+
+Version 2.1.2 korrigiert die benutzerbezogene Abfrage von HumHubs Space-PermissionManager. Version 2.1.1 übergab den Benutzer irrtümlich als Berechtigungsparameter und konnte deshalb beim Öffnen der Mediathek einen internen Fehler auslösen.
+
+Version 2.1.1 führt die Uploadentscheidung vollständig in einer gemeinsamen Berechtigungsregel zusammen. Im Space sind ein aktives Modul, die globale Gruppenberechtigung und die Space-Rollenberechtigung erforderlich. Im eigenen Profil sind ein aktives Profilmodul und die globale Gruppenberechtigung erforderlich. HumHubs sichtbarer Video-Reiter, der Mediathek-Button und alle klassischen sowie direkten Upload-Endpunkte verwenden nun dieselbe Prüfung.
+
+Version 2.1.0 modernisiert die Mediathek-Karten und bündelt ihre Aktionen übersichtlich. Das endgültige Löschen ist nicht mehr Teil der Übersicht, sondern liegt geschützt unter „Weitere Aktionen“ im Bearbeitungsformular. Der Upload erscheint ausschließlich als sichtbarer HumHub-Inhaltstyp „Video“ und nicht zusätzlich im Datei-/Wolkenmenü. Außerdem funktioniert die Uploadberechtigung nun auch im aktivierten Profilmodul für den Profileigentümer; die globale Gruppenfreigabe bleibt dabei erforderlich.
+
+Version 2.0.1 wiederholt vorübergehende PostgreSQL-Serialisierungskonflikte beim Sammelabgleich der Embed-Domains mit exponentiellem Abstand und zufälliger Streuung. Ein später erfolgreicher Abgleich entfernt den vorherigen lokalen Fehlerstatus wieder.
+
+Version 2.0.0 („Stufe 3“) überträgt große Video- und Audiodateien direkt vom Browser zum Videoserver. Der Upload läuft in 8-MiB-Blöcken, zeigt Prozentwert, Datenmenge, Geschwindigkeit und Restzeit, wiederholt vorübergehende Verbindungsfehler und lässt sich ausdrücklich abbrechen. HumHub erhält nur Formulardaten und optionale Vorschaubilder. Ein kurzlebiges, verschlüsseltes Upload-Ticket bindet Dateigröße, HumHub-Ursprung und PeerTube-Uploadsitzung; PeerTube signiert den Abschluss, bevor HumHub den Medieneintrag anlegt.
+
+Version 1.10.0 unterstützt die Community-Mediathek als echtes HumHub-Modul sowohl in Spaces als auch in Benutzerprofilen. Dadurch stehen für beide Ebenen HumHubs vier Standardzustände „Nicht verfügbar“, „Deaktivieren“, „Aktiviert“ und „Immer aktiviert“ zur Verfügung. Bei deaktiviertem oder nicht verfügbarem Profilmodul wird auch kein Video-Upload im Profil- oder Dashboard-Composer angeboten. Persönliche Videos werden über den HumHub-Content-Container des Benutzerprofils gespeichert; Ordner und deren Sichtbarkeiten bleiben eine Space-Funktion.
+
+Die Videoeinträge bleiben eigenständige HumHub-`ContentActiveRecord`-Inhalte mit Standard-Wall-Entry, kanonischer URL, Beschreibung und Berechtigungsprüfung. Damit kann das optionale Modul „Share content“ Videoeinträge wie andere HumHub-Inhalte erkennen und wiedergeben. Es gibt weder eine feste Klassenreferenz noch eine Installationsabhängigkeit zu „Share content“; ohne dieses Modul arbeitet die Mediathek unverändert weiter.
+
+Version 1.9.3 hält PeerTube in der normalen Benutzeroberfläche vollständig im Hintergrund. Mitglieder laden Videos „in die Community“ hoch; technische PeerTube-Bezeichnungen bleiben nur in der Administration und in Serverprotokollen sichtbar. Der native HumHub-Videoanhang bleibt in Spaces, Benutzerprofilen und im Dashboard entfernt. Ist der Community-Upload nicht verfügbar oder nicht erlaubt, wird kein alternativer Video-Upload angeboten.
+
+Version 1.9.2 entfernt HumHubs direkten Videoanhang auch aus Benutzerprofil- und Dashboard-Composer-Menüs. Eine globale HumHub-Gruppenberechtigung steuert zusätzlich, welche Benutzergruppen PeerTube-Uploads verwenden dürfen; die Space-Berechtigung bleibt als zweite notwendige Freigabe bestehen. Die allgemeine Content-Container-Schicht ist für eine spätere Benutzer-Mediathek vorbereitet, Benutzerprofile werden wegen der bislang Space-gebundenen Mediendatenbank aber noch nicht als Modulcontainer freigeschaltet.
+
+Version 1.9.1 überarbeitet die Ordnerverwaltung: Name, Sichtbarkeit und Font-Awesome-Symbol werden gemeinsam gespeichert, Löschen liegt getrennt in einer Gefahrenzone, und Ordnerkacheln zeigen ihre Sichtbarkeit mit Schloss oder Benutzergruppe. Click-to-load verwendet auch bei älteren Medien einen PeerTube-Thumbnail-Fallback und startet nach dem bewussten Klick direkt die Wiedergabe.
+
+Version 1.9.0 ist ein Stabilitäts- und Sicherheitsupdate: Der Video-Link im Composer erscheint nur noch in Spaces mit aktiviertem Modul, der technische PeerTube-Zugang wird verschlüsselt gespeichert, OAuth-Tokens werden kurzzeitig gecacht, Multipart-Aufrufe enden nach fünf Minuten und die Mediathek besitzt eine Seitennavigation mit zwölf Medien pro Seite. „Öffentlich“ heißt nun eindeutig „Alle Community-Mitglieder“; Gäste erhalten weiterhin keinen Zugriff. Sammeländerungen laufen über die HumHub-Queue. Upload und Bearbeitung legen zuerst einen lokalen Vorgang an, prüfen danach den PeerTube-Stand und versuchen bei Fehlern beide Seiten zurückzusetzen. Nicht vollständig rücksetzbare Vorgänge werden in der Modulkonfiguration als Admin-Alarm angezeigt.
+
+Version 1.8.0 übergibt dem ergänzenden PeerTube-Plugin den HumHub-Permalink des Medieneintrags. Permalinks mit `t=Sekunden` starten den eingebetteten Player an dieser Stelle. Der iFrame erhält ausschließlich für die benutzerinitiierte Kopierfunktion die Berechtigung `clipboard-write`.
+
+Version 1.7.1 unterstützt mehrere erlaubte HumHub-Domains für PeerTube-Einbettungen. Die Modulkonfiguration enthält eine Domainliste sowie eine Aktion, welche die Freigabe auf alle vorhandenen PeerTube-Videos überträgt. Neue und bearbeitete Videos erhalten die Liste automatisch.
+
+Version 1.7.0 reduziert Upload- und Bearbeitungsformulare auf die wichtigsten Felder. Themen, Ordner, Content Warning und Vorschaubild befinden sich standardmäßig geschlossen in aufklappbaren Bereichen. Eigene JPG-, PNG- und WebP-Vorschaubilder können beim Upload und beim Bearbeiten an PeerTube übertragen werden. Beim neuen Video-Upload kann alternativ ein Zeitpunkt angegeben werden; der Browser erzeugt daraus vor dem Absenden ein Vorschaubild. Ohne Auswahl bleibt PeerTubes bisheriges Standardverhalten unverändert.
+
+Version 1.6.0 verwendet für Medien dieselben globalen und Space-Themen wie HumHub. Die Auswahl erfolgt über HumHubs Topic-Picker, wird am Content- und damit am Stream-Eintrag gespeichert und steht zugleich als Mediathekfilter zur Verfügung. Themen aus älteren Modulversionen bleiben sichtbar, bis das Medium mit einer Auswahl aus dem HumHub-Topic-Picker neu gespeichert wird.
+
+Version 1.5.4 überträgt bei Uploads und Änderungen keine leeren Beschreibungsparameter mehr, die PeerTube mit HTTP 400 ablehnt.
+
+Version 1.5.3 verhindert einen HTTP-500-Fehler, wenn die Migration für die Sichtbarkeit nach dem Dateiaustausch noch aussteht.
+
+Version 1.5.2 vereinheitlicht die Popup-Bedienung, verschiebt die Ordnerverwaltung in die Kopfzeile und ergänzt die Sichtbarkeit für Videos ohne Ordner.
+
+Version 1.5.0 ergänzt den Uploader-Filter und die Ordnerverwaltung mit Umbenennen, Löschen und Sichtbarkeit für Mitglieder oder Öffentlichkeit.
+
+Version 1.4.1 ordnet die Mediathek mit Ordner-Kacheln neu und macht Suche, Filter und Ordnererstellung ausklappbar.
+
+Version 1.4.0 ergänzt freie Themen-Tags, Themenfilter, Freitextsuche und Space-Ordner für Videoreihen.
+
+Version 1.3.3 erlaubt HumHub-Systemadministratoren und Benutzern mit der globalen Berechtigung „Alle Inhalte verwalten“, sämtliche Medien zu bearbeiten und zu löschen. Version 1.3.2 sendet Änderungen und den nachträglichen Passwortschutz im von PeerTube erwarteten Multipart-Format. Version 1.3.1 korrigierte die Registrierung der Space-Berechtigungen und verhindert einen HTTP-500-Fehler beim Öffnen der Mediathek, falls die neue Verwaltungs-Migration nach einem manuellen Dateiaustausch noch nicht ausgeführt wurde.
+
+## Funktionen
+
+- Video-/Audio-Upload aus aktivierten Spaces zu PeerTube
+- Eigener „Video“-Eintrag im Stream-Composer und bestehende Mediathek
+- HumHubs „Video anhängen“ wird ausschließlich in aktivierten Spaces durch „Video hochladen“ ersetzt; in Spaces ohne aktiviertes Modul wird kein Video-Upload-Link angezeigt
+- Checkbox „Im Stream veröffentlichen“, standardmäßig aktiviert
+- Normale HumHub-Dateiuploads weisen Video-Dateien ab; Bilder, Dokumente und sonstige Dateien bleiben erlaubt
+- PeerTube-Videos mit individuellem, starkem Zufallspasswort (Privacy 5)
+- Passwort verschlüsselt mit dem HumHub-Anwendungsschlüssel gespeichert
+- Passwortfreigabe nur über eine nicht cachebare, berechtigungsgeprüfte HumHub-Antwort
+- Embed immer mit `p2p=0`, `warningTitle=0`, `peertubeLink=0`
+- Embed zusätzlich auf die HumHub-Domain beschränkt (PeerTube 8.1+)
+- Content Warnings vor dem Laden des Players
+- HumHub-ContentModel für Stream, Autor, Kommentare und Space-Sichtbarkeit
+- Eindeutige PeerTube-UUID verhindert doppelte lokale Einträge
+- Einmaliges Upload-Token verhindert Doppel-Uploads durch Doppelklick oder erneutes Absenden
+- Titel, Beschreibung, Content Warnings und Stream-Veröffentlichung können nachträglich bearbeitet werden; Titel und Beschreibung werden mit PeerTube synchronisiert
+- Globale und Space-Themen aus HumHub werden am Video-Content gespeichert, im Stream angezeigt und in der Mediathek gefiltert
+- Kompakte Formulare mit ausklappbaren Zusatzoptionen sowie eigenen Vorschaubildern; beim Erstupload kann ein Frame per Videozeitpunkt gewählt werden
+- Eigene Space-Berechtigungen „Videos hochladen“ und „Videos verwalten“
+- Remote-Löschung ist fehlertolerant bei bereits fehlenden Videos; bei anderen PeerTube-Fehlern bleibt der lokale Eintrag für einen erneuten Versuch erhalten
+- Synchronisierungsfehler werden lokal markiert, ohne Passwörter oder Tokens im Frontend auszugeben
+- Ordner und Videos ohne Ordner können für „Nur Raummitglieder“ oder „Alle Community-Mitglieder“ freigegeben werden; Gäste bleiben ausgeschlossen
+- Mediathek-Seitennavigation mit zwölf Medien pro Seite
+- Technischer PeerTube-Zugang verschlüsselt gespeichert und OAuth-Zugriffstoken gecacht
+- Sammelaktionen für Bestandsschutz und Embed-Domains laufen über die HumHub-Queue
+- Direkter, blockweiser Browser-Upload mit Fortschritt, Restzeit, Wiederholungen und Abbruch
+
+## Update von 1.1.0 bis 1.2.3
+
+1. Datenbank und bisherigen Modulordner sichern.
+2. Den Ordner `peertube` aus dieser ZIP über `protected/modules/peertube` kopieren.
+3. Da HumHub für manuell kopierte Module keinen Update-Knopf anzeigt: **Administration → Module → PeerTube Mediathek → Konfigurieren** öffnen und dort **Datenbank jetzt aktualisieren** anklicken. Dadurch laufen alle noch fehlenden Migrationen.
+4. Konfiguration speichern und **Verbindung testen**.
+5. Einen Test-Upload in einem Space durchführen und sowohl Mediathek als auch Stream prüfen.
+
+Migration `m260902_000003_protected_stream_content` ergänzt Passwortschutz, Stream-Schalter und Thumbnail. Migration `m260903_000004_management` ergänzt `upload_token`, `sync_status`, `last_sync_error` und den eindeutigen Upload-Token-Index. Migration `m260903_000008_pending_operations` speichert laufende Upload- und Bearbeitungsvorgänge für eine kontrollierte Rücksetzung. Frühere Mediathek-Videos können in der Modulkonfiguration gesammelt über **Bestehende Videos jetzt schützen** umgestellt werden; alternativ geschieht dies beim ersten berechtigten Abspielen. Frühere Videos werden nicht nachträglich als Stream-Posts dupliziert.
+
+Nach dem Update können die neuen Rechte in den Space-Einstellungen unter **Berechtigungen** je Space angepasst werden. Standardmäßig dürfen Mitglieder hochladen; Eigentümer, Administratoren und Moderatoren dürfen alle Medien verwalten. Der jeweilige Uploader darf sein eigenes Medium weiterhin bearbeiten und löschen.
+
+## Neuinstallation
+
+Den Ordner `peertube` nach `protected/modules/` kopieren, das Modul in HumHub installieren, PeerTube-URL, technischen Benutzer und Kanal-ID konfigurieren und anschließend in den gewünschten Spaces aktivieren.
+
+## Direktupload einrichten
+
+In der HumHub-Modulkonfiguration und in den Einstellungen des PeerTube-Plugins `humhub-permalinks` muss derselbe zufällige Schlüssel mit mindestens 32 Zeichen gespeichert werden. Im PeerTube-Plugin werden zusätzlich alle erlaubten HumHub-Ursprünge vollständig mit `https://` eingetragen. Große Mediendateien laufen danach nicht mehr durch HumHub/PHP; dessen Upload-Limit betrifft nur ein optional hochgeladenes Vorschaubild.
+
+Für die beiden Sammelaktionen muss HumHubs Queue-Worker beziehungsweise Queue-Cronjob eingerichtet sein. Ohne laufende Queue bleiben die Aufträge eingeplant, werden aber nicht abgearbeitet.
+
+## Sicherheitsgrenze
+
+Das Passwort steht nicht in Embed-URLs oder im ausgelieferten Seiten-HTML. Ein berechtigter Browser muss es für die Wiedergabe an PeerTube übermitteln; technisch versierte berechtigte Nutzer können es daher in ihren eigenen Netzwerkdaten auslesen. Bildschirmaufnahmen lassen sich ebenfalls nicht verhindern.
+
+## Deinstallation
+
+Das Deaktivieren/Deinstallieren des Moduls führt HumHubs Deinstallationsmigration aus und entfernt die lokale Mediathek-Tabelle samt zugehörigen Stream-Inhalten. PeerTube-Dateien werden dabei nicht automatisch massenweise gelöscht. Für normale Updates das Modul aktiviert lassen und nur die Dateien austauschen.
+## Version 2.7.0
+
+- Geplante Livestreams werden sofort im Stream angekündigt.
+- Bei aktiviertem Kalender-Modul erscheinen geplante Livestreams automatisch im Kalender; das Kalender-Modul bleibt optional.
+- OBS-Start und -Ende werden alle fünf Sekunden statt alle 30 Sekunden geprüft.
+- Das Live-Studio aktualisiert nur noch den Status und lädt nicht mehr die ganze Seite neu.
+## Version 2.7.1
+
+- Hotfix: Die optionale Kalenderintegration wird nicht mehr global geladen und kann deshalb keine HumHub-Seite blockieren.
+- Eine Modul-Deaktivierung bewahrt standardmäßig sämtliche Tabellen, Inhalte und Einstellungen auf.
+- Vollständige Datenlöschung ist nur nach ausdrücklicher Aktivierung in der Danger Zone möglich.
+## Version 2.7.2
+
+- PeerTube-Instanzen ohne freigegebenen Niedriglatenzmodus fallen automatisch auf den Standardmodus zurück.
+- Livestreams können ein eigenes Ankündigungsbild erhalten.
+- Derselbe Stream-Beitrag zeigt vor Beginn die Ankündigung, während der Sendung den Live-Player und danach die gespeicherte Aufzeichnung.
+- Die Hotfix-Konfiguration enthält keine veralteten Kalender-Callbacks mehr.
+## Version 2.7.3
+
+- Leere HumHub-Beitragsformulare lösen nach ihrer dynamischen Initialisierung keine falsche Warnung über ungespeicherte Änderungen mehr aus.
+- Tatsächlich eingegebener Text bleibt weiterhin durch die Verlassen-Warnung geschützt.
+# Version 2.8.0
+
+- Geplante Livestream-Ankündigungen können über das native Drei-Punkte-Menü bearbeitet werden.
+- Titel, Beschreibung, Termin, Dauer und Ankündigungsbild lassen sich vor Streambeginn ändern.
+- `[artikelbild]` positioniert Video, Ankündigungsbild beziehungsweise Liveplayer innerhalb des Beschreibungstextes.
+- Titel und Beschreibungen unterstützen Emojis; bestehende Modultabellen werden unter MySQL auf `utf8mb4` aktualisiert.
+- Auch normale Videobeiträge besitzen nun im Drei-Punkte-Menü den nativen Eintrag „Bearbeiten“.
+
+# Version 2.8.1
+
+- Der Formularwächter erkennt den leeren Dashboard-Composer jetzt anhand sichtbarer Eingaben statt anhand interner Richtext-Daten.
+- Dynamische versteckte Formularwerte lösen beim Navigieren keine falsche Warnung mehr aus; echte Text- und Dateientwürfe bleiben geschützt.
+- `[artikelbild]` wird nun auch in der Livestream-Einzelansicht ausgewertet und nicht mehr als Text angezeigt.
+
+# Version 2.8.2
+
+- Der Formularwächter berücksichtigt jetzt alle leeren, dynamisch erzeugten Streamformulare – einschließlich Kommentar- und Antwortformularen.
+- Die Bereinigung läuft vor Maus-, Touch- und Tastatur-Navigation; ausgefüllte Texte und ausgewählte Dateien bleiben weiterhin geschützt.
+
+# Version 2.8.6
+
+- Die in Version 2.8.2 bis 2.8.5 ergänzten Eingriffe in HumHubs Formularwächter wurden vollständig entfernt. Die Falschmeldung wurde durch Local Link Preview verursacht und wird dort behoben.
+
+# Version 2.8.5
+
+- Der originale HumHub-Formularwächter wird nun unabhängig von der Ladereihenfolge zuverlässig nach der Widget-Initialisierung sowie unmittelbar vor einer Navigation abgelöst.
+- Damit verschwindet die weiterhin reproduzierbare Falschmeldung beim Öffnen von Mitgliedern, Räumen und anderen Seiten aus einem unveränderten Dashboard.
+
+# Version 2.8.4
+
+- Der Formularwächter auf Dashboard- und Streamseiten reagiert nur noch auf echte Eingaben der Benutzer. Asynchron gesetzte, versteckte Widget-Felder lösen keine falsche Warnung mehr aus.
+- Begonnene Texte, Dateiauswahlen und andere wirkliche Formularänderungen bleiben weiterhin gegen versehentliches Verlassen geschützt.
+
+# Version 2.8.3
+
+- Leere Streamformulare erhalten keinen veraltenden Vergleichszustand mehr; dynamische versteckte Felder können den Formularwächter daher nicht erneut auslösen.
+- Der Schutz wird unmittelbar vor der ersten echten Texteingabe, Dateiauswahl oder sichtbaren Formularänderung wieder aktiviert.

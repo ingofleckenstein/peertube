@@ -1,0 +1,8 @@
+{
+  "id": "peertube",
+  "name": "Community-Mediathek",
+  "description": "Video- und Audio-Mediathek für die Community.",
+  "keywords": ["video", "audio", "peertube", "media"],
+  "version": "2.8.6",
+  "humhub": {"minVersion": "1.18.3"}
+}

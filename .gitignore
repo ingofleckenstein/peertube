@@ -1,0 +1,23 @@
+# Local development files and dependencies
+.vs/
+.idea/
+.vscode/
+node_modules/
+vendor/
+.DS_Store
+Thumbs.db
+*.log
+# Runtime data and local credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.pfx
+*.p12
+*.sql
+*.sqlite
+*.sqlite3
+/runtime/
+/cache/
