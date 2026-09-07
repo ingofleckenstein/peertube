@@ -10,10 +10,16 @@ Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betrieb
 
 | Bestandteil | Stand / Voraussetzung |
 | --- | --- |
-| Dieses HumHub-Modul | **2.8.7** laut `module.json` |
+| Dieses HumHub-Modul | **2.8.8** laut `module.json` |
 | HumHub | Referenz **CE 1.18.5**; Metadatenminimum **1.18.3** |
 | PeerTube-Server | Referenz **8.2.4**; bisherige Entwicklung auf 8.2.x ausgerichtet |
 | PeerTube-Begleitplugin | **1.2.1**, für Direktupload auf PeerTube installieren |
+
+## Version 2.8.8: Beschreibung und Live-Limits
+
+Live-Beschreibungen sind optional; ausgefüllte Beschreibungen müssen nach dem Trimmen 3 bis 10.000 Zeichen enthalten. Das Formular prüft dies vor dem PeerTube-Aufruf, der API-Client schützt zusätzlich die Erstellung permanenter Livequellen. Grundlage: [PeerTube 8.2.4, CONSTRAINTS_FIELDS.VIDEOS.DESCRIPTION](https://github.com/Chocobozzz/PeerTube/blob/v8.2.4/server/core/initializers/constants.ts).
+
+Die Fehler `max_user_lives_limit_reached` und `max_instance_lives_limit_reached` erhalten verständliche Meldungen. Alle HumHub-Nutzer verwenden den konfigurierten technischen PeerTube-Zugang; dessen Live-Limit kann daher mehrere Personen oder angebundene Communities betreffen. Ein Modulupdate oder Cache-Leeren hebt dieses serverseitige Limit nicht auf. Vorhandene Livequellen und das Limit müssen auf PeerTube administrativ geprüft werden. Das Modul löscht dafür keine fremden Livequellen und ändert keine Serverlimits.
 
 ## Version 2.8.7: Vorschaubild-Cache und Live-Korrektur
 

@@ -55,7 +55,7 @@ namespace {
     }
     Yii::$app = new App(); Yii::$app->cache = new Cache();
     Yii::$app->response = (object)['headers' => new class { function set($key, $value) {} }, 'format'=>null];
-    foreach (['CredentialVault', 'RemoteCache', 'ThumbnailCache', 'PeerTubeClient'] as $class) require dirname(__DIR__) . '/components/' . $class . '.php';
+    foreach (['CredentialVault', 'RemoteCache', 'ThumbnailCache', 'PeerTubeClient', 'LiveError'] as $class) require dirname(__DIR__) . '/components/' . $class . '.php';
     require dirname(__DIR__) . '/controllers/MediaController.php';
     $count = 0;
     function check($condition, $message) { global $count; if (!$condition) throw new \RuntimeException($message); ++$count; }
@@ -79,6 +79,14 @@ namespace {
         check(trim($description) === '' ? !isset($fields['description']) : $fields['description'] === $description, 'Live description omission / preservation');
         check($fields['privacy'] === '5' && $fields['videoPasswords[0]'] === 'test-password', 'Password protection retained');
     }
+    foreach (['d', 'ab', str_repeat('x', 10001)] as $invalidDescription) {
+        $GLOBALS['requests'] = [];
+        fails(fn()=>$client->createPermanentLive('Test', $invalidDescription, 1, 'test-password'), 'Invalid live description rejected');
+        check($GLOBALS['requests'] === [], 'Validation precedes PeerTube request');
+    }
+    check(str_contains(\selfsein\peertube\components\LiveError::message(new \RuntimeException('max_user_lives_limit_reached')), 'technischen PeerTube-Kontos'), 'User live quota explanation');
+    check(str_contains(\selfsein\peertube\components\LiveError::message(new \RuntimeException('max_instance_lives_limit_reached')), 'PeerTube-Servers'), 'Server live quota explanation');
+    check(!str_contains(\selfsein\peertube\components\LiveError::message(new \RuntimeException('secret-payload')), 'secret-payload'), 'No raw remote errors in UI');
     $GLOBALS['requests'] = []; $client->getCachedVideo('test'); $client->getCachedVideo('test'); check(count($GLOBALS['requests']) === 1, 'Metadata cache');
     $client->getVideo('test'); check(count($GLOBALS['requests']) === 2, 'Fresh verification bypasses cache');
     $thumb = '\\selfsein\\peertube\\components\\ThumbnailCache';

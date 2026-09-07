@@ -51,7 +51,7 @@ class LiveController extends ContentContainerController
                 $source = $this->sourceForCurrentUser($model);
             } catch (\Throwable $exception) {
                 Yii::error($exception, 'peertube');
-                $model->addError('title', 'Die Livestream-Quelle konnte nicht vorbereitet werden. Bitte versuche es erneut oder informiere die Administration.');
+                $model->addError('title', \selfsein\peertube\components\LiveError::message($exception));
                 return $this->render('start', ['model' => $model]);
             }
             $now = date('Y-m-d H:i:s');

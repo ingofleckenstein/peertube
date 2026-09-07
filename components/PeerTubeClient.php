@@ -206,6 +206,9 @@ class PeerTubeClient
 
     public function createPermanentLive(string $title, string $description, int $channelId, string $videoPassword): array
     {
+        if (trim($description) !== '' && (mb_strlen($description, 'UTF-8') < 3 || mb_strlen($description, 'UTF-8') > 10000)) {
+            throw new RuntimeException('Die Beschreibung muss leer sein oder 3 bis 10.000 Zeichen enthalten.');
+        }
         $token = $this->accessToken();
         $fields = [
             'name' => $title,

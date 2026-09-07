@@ -16,7 +16,10 @@ class LiveForm extends Model
         return [
             ['title', 'required'],
             ['title', 'string', 'min' => 3, 'max' => 120],
-            ['description', 'string'],
+            ['description', 'filter', 'filter' => 'trim', 'skipOnArray' => true],
+            ['description', 'string', 'min' => 3, 'max' => 10000,
+                'tooShort' => 'Die Beschreibung muss mindestens 3 Zeichen enthalten oder leer bleiben.',
+                'tooLong' => 'Die Beschreibung darf höchstens 10.000 Zeichen enthalten.'],
             ['schedule', 'boolean'],
             ['scheduledAt', 'required', 'when' => static fn(self $model) => (bool)$model->schedule,
                 'whenClient' => "function(){return document.getElementById('liveform-schedule').checked;}",

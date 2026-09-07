@@ -8,7 +8,7 @@
     "peertube",
     "media"
   ],
-  "version": "2.8.7",
+  "version": "2.8.8",
   "humhub": {
     "minVersion": "1.18.3"
   }
