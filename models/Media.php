@@ -120,7 +120,17 @@ class Media extends ContentActiveRecord
 
     public function getSearchAttributes()
     {
-        return ['title' => $this->title, 'description' => $this->description];
+        $attributes = [
+            'title' => $this->title,
+            'description' => $this->description,
+            // HumHub already indexes native content tags. Keep the legacy
+            // topic representation searchable as well.
+            'topics' => implode(' ', $this->getTopicNames()),
+        ];
+        if ($this->hasAttribute('transcript_text') && (string) $this->transcript_status === 'ready') {
+            $attributes['transcript'] = (string) $this->transcript_text;
+        }
+        return $attributes;
     }
 
     public function beforeSoftDelete(): bool

@@ -36,6 +36,9 @@ class AdminController extends Controller
             && in_array('thumbnail_url', $columns, true)
             && in_array('upload_token', $columns, true)
             && in_array('sync_status', $columns, true)
+            && in_array('transcript_status', $columns, true)
+            && in_array('transcript_cues', $columns, true)
+            && in_array('transcript_text', $columns, true)
             && in_array('folder_id', $columns, true)
             && in_array('topics', $columns, true)
             && ($folderSchema = Yii::$app->db->schema->getTableSchema('{{%peertube_folder}}', true)) !== null

@@ -27,6 +27,7 @@ if ($start > 0) {
 $embedUrl = $baseUrl . '/videos/embed/' . rawurlencode($media->peertube_uuid)
     . '?' . http_build_query($embedParameters, '', '&', PHP_QUERY_RFC3986);
 $passwordUrl = $media->content->container->createUrl('/peertube/media/password', ['id' => $media->id]);
+$transcriptUrl = $media->content->container->createUrl('/peertube/media/transcript', ['id' => $media->id]);
 $thumbnailUrl = $media->getDisplayThumbnailUrl();
 ?>
 <div class="ratio ratio-16x9 bg-light" id="<?= Html::encode($id) ?>-container">
@@ -50,12 +51,122 @@ $thumbnailUrl = $media->getDisplayThumbnailUrl();
         <iframe id="<?= Html::encode($id) ?>" src="about:blank" data-src="<?= Html::encode($embedUrl) ?>" title="<?= Html::encode($media->title) ?>" loading="lazy" allow="fullscreen; picture-in-picture" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
     <?php endif; ?>
 </div>
+<div class="pt-transcript-control mt-2">
+    <button type="button" class="btn btn-default btn-sm" id="<?= Html::encode($id) ?>-transcript" disabled aria-expanded="false">
+        <i class="fa fa-file-text-o" aria-hidden="true"></i> <span>Transkript wird erstellt.</span>
+    </button>
+</div>
+<div class="modal fade" id="<?= Html::encode($id) ?>-transcript-modal" tabindex="-1" role="dialog" aria-labelledby="<?= Html::encode($id) ?>-transcript-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Schließen"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="<?= Html::encode($id) ?>-transcript-title">Transkript</h4>
+            </div>
+            <div class="modal-body">
+                <div id="<?= Html::encode($id) ?>-transcript-list" class="list-group" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+</div>
 <?php
 $js = <<<'JS'
-(function (id, passwordUrl, embedUrl, title) {
+(function (id, passwordUrl, embedUrl, transcriptUrl, title) {
     var started = false;
+    var player = null;
+    var cues = [];
+    var activeCue = -1;
+    var transcriptOpen = false;
+    var pollTimer = null;
+    var transcriptButton = document.getElementById(id + '-transcript');
+    var transcriptList = document.getElementById(id + '-transcript-list');
+    var transcriptModal = document.getElementById(id + '-transcript-modal');
+
+    function formatTime(seconds) {
+        seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var remaining = seconds % 60;
+        return (hours ? String(hours).padStart(2, '0') + ':' : '') + String(minutes).padStart(2, '0') + ':' + String(remaining).padStart(2, '0');
+    }
+    function setTranscriptLabel(label, enabled) {
+        if (!transcriptButton) return;
+        transcriptButton.disabled = !enabled;
+        transcriptButton.querySelector('span').textContent = label;
+    }
+    function renderTranscript() {
+        if (!transcriptList) return;
+        transcriptList.textContent = '';
+        cues.forEach(function (cue, index) {
+            var item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'list-group-item text-start';
+            item.dataset.cueIndex = String(index);
+            var timestamp = document.createElement('small');
+            timestamp.className = 'text-muted me-2';
+            timestamp.textContent = formatTime(cue.start);
+            item.appendChild(timestamp);
+            item.appendChild(document.createTextNode(' ' + cue.text));
+            item.addEventListener('click', async function () {
+                if (!player) await start();
+                if (player) {
+                    try { await player.seek(Number(cue.start)); } catch (_) { /* Player controls remain usable as fallback. */ }
+                }
+            });
+            transcriptList.appendChild(item);
+        });
+    }
+    function updateActiveCue(seconds) {
+        var next = -1;
+        for (var index = 0; index < cues.length; index++) {
+            if (seconds >= Number(cues[index].start) && seconds < Number(cues[index].end)) { next = index; break; }
+        }
+        if (next === activeCue) return;
+        var previous = transcriptList && transcriptList.querySelector('[data-cue-index="' + activeCue + '"]');
+        if (previous) previous.classList.remove('active');
+        activeCue = next;
+        var current = transcriptList && transcriptList.querySelector('[data-cue-index="' + activeCue + '"]');
+        if (current) {
+            current.classList.add('active');
+            if (transcriptOpen) current.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+        }
+    }
+    async function syncActiveCue() {
+        if (!transcriptOpen || !player || !cues.length) return;
+        try { updateActiveCue(await player.getCurrentTime()); } catch (_) { /* A loading iframe has no current time yet. */ }
+    }
+    function showTranscript() {
+        transcriptOpen = true;
+        transcriptButton.setAttribute('aria-expanded', 'true');
+        if (window.jQuery && window.jQuery.fn.modal) window.jQuery(transcriptModal).modal('show');
+        else { transcriptModal.style.display = 'block'; transcriptModal.classList.add('in'); transcriptModal.setAttribute('aria-hidden', 'false'); }
+        syncActiveCue();
+    }
+    function hideTranscript() {
+        transcriptOpen = false;
+        transcriptButton.setAttribute('aria-expanded', 'false');
+    }
+    async function loadTranscript() {
+        try {
+            var response = await fetch(transcriptUrl, {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+            if (!response.ok) throw new Error('Nicht verfügbar');
+            var data = await response.json();
+            if (data.status === 'ready' && Array.isArray(data.cues)) {
+                cues = data.cues;
+                renderTranscript();
+                setTranscriptLabel('Transkript öffnen', true);
+                if (pollTimer) { window.clearInterval(pollTimer); pollTimer = null; }
+                return;
+            }
+            setTranscriptLabel(data.message || (data.status === 'unavailable' ? 'Transkript nicht verfügbar' : 'Transkript wird erstellt.'), false);
+            if (data.status === 'processing' && !pollTimer) pollTimer = window.setInterval(loadTranscript, 15000);
+        } catch (_) {
+            setTranscriptLabel('Transkript wird erstellt.', false);
+            if (!pollTimer) pollTimer = window.setInterval(loadTranscript, 15000);
+        }
+    }
     async function start() {
-        if (started) return;
+        if (started) return player;
         started = true;
         var frame = document.getElementById(id);
         var warning = document.getElementById(id + '-warning');
@@ -77,9 +188,11 @@ $js = <<<'JS'
             frame.src = embedUrl;
             if (warning) warning.remove();
             if (placeholder) placeholder.remove();
-            var player = new window.PeerTubePlayer(frame);
+            player = new window.PeerTubePlayer(frame);
             await player.setVideoPassword(data.password);
             try { await player.play(); } catch (_) { /* Browser retains the visible play control as fallback. */ }
+            loadTranscript();
+            return player;
         } catch (error) {
             started = false;
             if (warning || placeholder) {
@@ -92,7 +205,9 @@ $js = <<<'JS'
     }
     var button = document.getElementById(id + '-reveal') || document.getElementById(id + '-load');
     if (button) button.addEventListener('click', start); else start();
-})(%s, %s, %s, %s);
+    if (transcriptButton) transcriptButton.addEventListener('click', showTranscript);
+    if (transcriptModal && window.jQuery) window.jQuery(transcriptModal).on('hidden.bs.modal', hideTranscript);
+})(%s, %s, %s, %s, %s);
 JS;
-$this->registerJs(sprintf($js, Json::htmlEncode($id), Json::htmlEncode($passwordUrl), Json::htmlEncode($embedUrl), Json::htmlEncode((string) $media->title)));
+$this->registerJs(sprintf($js, Json::htmlEncode($id), Json::htmlEncode($passwordUrl), Json::htmlEncode($embedUrl), Json::htmlEncode($transcriptUrl), Json::htmlEncode((string) $media->title)));
 ?>

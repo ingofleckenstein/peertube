@@ -27,6 +27,7 @@ use yii\data\Pagination;
 use humhub\modules\space\models\Space;
 use selfsein\peertube\components\AccessPolicy;
 use selfsein\peertube\components\DirectUploadTicket;
+use selfsein\peertube\components\TranscriptService;
 use selfsein\peertube\models\SettingsForm;
 
 class MediaController extends ContentContainerController
@@ -38,7 +39,7 @@ class MediaController extends ContentContainerController
         // media-specific visibility checks.
         if (!Yii::$app->user->isGuest
             && $this->contentContainer instanceof Space
-            && in_array($action->id, ['index', 'view', 'password', 'thumbnail'], true)
+            && in_array($action->id, ['index', 'view', 'password', 'thumbnail', 'transcript'], true)
             && !$this->contentContainer->canAccessPrivateContent(Yii::$app->user->identity)) {
             $this->detachBehavior('containerControllerBehavior');
             $this->subLayout = '@humhub/modules/space/views/space/_layout';
@@ -724,6 +725,26 @@ class MediaController extends ContentContainerController
             $this->ensurePassword($media);
         }
         return ['password' => VideoPasswordVault::decrypt((string) $media->password_encrypted)];
+    }
+
+    /**
+     * The browser uses this endpoint both to start the asynchronous PeerTube
+     * transcription on first view and to poll its status. It never exposes the
+     * PeerTube password or a direct caption URL.
+     */
+    public function actionTranscript($id)
+    {
+        $this->assertModuleEnabled();
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        Yii::$app->response->headers->set('Cache-Control', 'no-store, private');
+        Yii::$app->response->headers->set('Pragma', 'no-cache');
+
+        $media = Media::find()->contentContainer($this->contentContainer)->andWhere([Media::tableName() . '.id' => (int) $id])->one();
+        if (!$media || !$media->canBeViewedBy()) {
+            throw new ForbiddenHttpException();
+        }
+
+        return (new TranscriptService())->get($media);
     }
 
     public function actionDelete($id)

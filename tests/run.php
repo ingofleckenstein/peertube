@@ -65,7 +65,7 @@ namespace {
     }
     Yii::$app = new App(); Yii::$app->cache = new Cache();
     Yii::$app->response = (object)['headers' => new class { function set($key, $value) {} }, 'format'=>null];
-    foreach (['CredentialVault', 'RemoteCache', 'ThumbnailCache', 'PeerTubeClient', 'LiveError'] as $class) require dirname(__DIR__) . '/components/' . $class . '.php';
+    foreach (['CredentialVault', 'RemoteCache', 'ThumbnailCache', 'PeerTubeClient', 'LiveError', 'TranscriptService'] as $class) require dirname(__DIR__) . '/components/' . $class . '.php';
     require dirname(__DIR__) . '/controllers/MediaController.php';
     $count = 0;
     function check($condition, $message) { global $count; if (!$condition) throw new \RuntimeException($message); ++$count; }
@@ -83,6 +83,15 @@ namespace {
     $cache::remember('locked', 300, function () use ($cache) { fails(fn() => $cache::remember('locked', 300, fn()=>die('Duplicate load')), 'Parallel request must not load'); return 1; });
     $client = new \selfsein\peertube\components\PeerTubeClient();
     $property = new \ReflectionProperty($client, 'accessTokenCache'); $property->setValue($client, 'fake-token');
+    foreach (['https://evil.example/captions.vtt', '/api/v1/videos/test/captions/de', '/lazy-static/video-captions/test.srt', '/lazy-static/video-captions/../secret.vtt'] as $unsafeCaptionPath) {
+        fails(fn() => $client->downloadCaption($unsafeCaptionPath, 'test-password'), 'Unsafe caption path rejected');
+    }
+    $transcriptService = \selfsein\peertube\components\TranscriptService::class;
+    [$cues, $transcript] = $transcriptService::parseWebVtt("WEBVTT\n\n1\n00:00:01.250 --> 00:00:03.500 align:start\nHallo <c.green>Community</c>!\n\n00:01:02.000 --> 00:01:04.000\nSoziokratische Arbeitskreise.\n");
+    check(count($cues) === 2 && $cues[0]['start'] === 1.25 && $cues[1]['end'] === 64.0, 'WebVTT timecodes parsed');
+    check($cues[0]['text'] === 'Hallo Community!' && str_contains($transcript, 'Soziokratische Arbeitskreise.'), 'WebVTT text made safe and searchable');
+    [$invalidCues] = $transcriptService::parseWebVtt("WEBVTT\n\n00:60:01.000 --> 00:60:02.000\ninvalid\n");
+    check($invalidCues === [], 'Invalid WebVTT timecodes ignored');
     foreach (['', '  ', 'Eine Beschreibung'] as $description) {
         $GLOBALS['requests'] = []; $client->createPermanentLive('Test', $description, 1, 'test-password');
         $fields = $GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS];

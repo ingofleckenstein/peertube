@@ -197,6 +197,53 @@ class PeerTubeClient
         return $this->request('GET', '/api/v1/videos/' . rawurlencode($id), null, $this->accessToken());
     }
 
+    /**
+     * Lists captions with the video password so private community videos remain
+     * private at PeerTube as well as in HumHub.
+     */
+    public function getCaptions(string $id, string $videoPassword): array
+    {
+        return $this->request(
+            'GET',
+            '/api/v1/videos/' . rawurlencode($id) . '/captions',
+            null,
+            $this->accessToken(),
+            false,
+            ['X-PeerTube-Video-Password: ' . $videoPassword]
+        );
+    }
+
+    /** Ask PeerTube to queue its configured automatic transcription provider. */
+    public function generateCaption(string $id): void
+    {
+        $this->requestJson(
+            'POST',
+            '/api/v1/videos/' . rawurlencode($id) . '/captions/generate',
+            ['forceTranscription' => false],
+            $this->accessToken(),
+            'PeerTube-Transkription'
+        );
+    }
+
+    /**
+     * Caption paths are deliberately restricted to PeerTube's own static
+     * captions directory. A value from a remote API must never turn this
+     * server-side request into a general-purpose URL fetcher.
+     */
+    public function downloadCaption(string $captionPath, string $videoPassword): string
+    {
+        if (!preg_match('#^/lazy-static/video-captions/[A-Za-z0-9._-]+\\.vtt$#', $captionPath)) {
+            throw new RuntimeException('PeerTube hat einen ungültigen Untertitelpfad zurückgegeben.');
+        }
+
+        return $this->requestRaw(
+            'GET',
+            $captionPath,
+            $this->accessToken(),
+            ['X-PeerTube-Video-Password: ' . $videoPassword]
+        );
+    }
+
     /** Cached representation for display; verification and live polling stay fresh. */
     public function getCachedVideo(string $id): array
     {
@@ -305,7 +352,7 @@ class PeerTubeClient
         ], $token);
     }
 
-    private function requestJson(string $method, string $path, array $payload, string $token): array
+    private function requestJson(string $method, string $path, array $payload, string $token, string $context = 'PeerTube API'): array
     {
         if (!function_exists(__NAMESPACE__ . '\\curl_init') && !function_exists('curl_init')) {
             throw new RuntimeException('Die PHP-cURL-Erweiterung fehlt.');
@@ -343,7 +390,7 @@ class PeerTubeClient
             // immediately colliding again.
             usleep((200000 * (2 ** $attempt)) + random_int(25000, 175000));
         }
-        throw new RuntimeException('PeerTube Embed-Schutz (' . $status . '): ' . ($body ?: $error));
+        throw new RuntimeException($context . ' (' . $status . '): ' . ($body ?: $error));
     }
 
     private function accessToken(): string
@@ -375,7 +422,7 @@ class PeerTubeClient
         return $this->accessTokenCache;
     }
 
-    private function request(string $method, string $path, ?array $fields = null, ?string $token = null, bool $multipart = false): array
+    private function request(string $method, string $path, ?array $fields = null, ?string $token = null, bool $multipart = false, array $extraHeaders = []): array
     {
         if (!function_exists(__NAMESPACE__ . '\\curl_init') && !function_exists('curl_init')) {
             throw new RuntimeException('Die PHP-cURL-Erweiterung fehlt.');
@@ -385,7 +432,7 @@ class PeerTubeClient
         }
 
         $handle = curl_init($this->baseUrl . $path);
-        $headers = ['Accept: application/json'];
+        $headers = array_merge(['Accept: application/json'], $extraHeaders);
         if ($token) {
             $headers[] = 'Authorization: Bearer ' . $token;
         }
@@ -415,5 +462,36 @@ class PeerTubeClient
             throw new RuntimeException('PeerTube API (' . $status . '): ' . ($message ?: $error));
         }
         return is_array($decoded) ? $decoded : [];
+    }
+
+    private function requestRaw(string $method, string $path, string $token, array $extraHeaders = []): string
+    {
+        if (!function_exists(__NAMESPACE__ . '\\curl_init') && !function_exists('curl_init')) {
+            throw new RuntimeException('Die PHP-cURL-Erweiterung fehlt.');
+        }
+        if ($this->baseUrl === '') {
+            throw new RuntimeException('Die PeerTube-URL ist nicht konfiguriert.');
+        }
+
+        $handle = curl_init($this->baseUrl . $path);
+        curl_setopt_array($handle, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => array_merge(['Accept: text/vtt', 'Authorization: Bearer ' . $token], $extraHeaders),
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+        $body = (string) curl_exec($handle);
+        $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($handle);
+        curl_close($handle);
+
+        if ($error !== '' || $status < 200 || $status >= 300) {
+            throw new RuntimeException('PeerTube Untertitel (' . $status . '): ' . ($error ?: 'Abruf fehlgeschlagen.'));
+        }
+        if (strlen($body) > 2 * 1024 * 1024) {
+            throw new RuntimeException('PeerTube Untertitel ist zu groß.');
+        }
+        return $body;
     }
 }
