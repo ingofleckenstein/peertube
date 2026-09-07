@@ -150,10 +150,10 @@ class Media extends ContentActiveRecord
     public function getFolder() { return $this->hasOne(Folder::class, ['id' => 'folder_id']); }
     public function getDisplayThumbnailUrl(): string
     {
-        if (trim((string) $this->thumbnail_url) !== '') {
-            return (string) $this->thumbnail_url;
-        }
-        return '';
+        return Url::to(['/peertube/media/thumbnail',
+            'cguid' => $this->content->container->guid, 'id' => $this->id,
+            'v' => (string) $this->updated_at,
+        ]);
     }
     public function isCommunityVisible(): bool
     {

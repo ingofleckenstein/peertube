@@ -10,10 +10,20 @@ Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betrieb
 
 | Bestandteil | Stand / Voraussetzung |
 | --- | --- |
-| Dieses HumHub-Modul | **2.8.6** laut `module.json` |
+| Dieses HumHub-Modul | **2.8.7** laut `module.json` |
 | HumHub | Referenz **CE 1.18.5**; Metadatenminimum **1.18.3** |
 | PeerTube-Server | Referenz **8.2.4**; bisherige Entwicklung auf 8.2.x ausgerichtet |
 | PeerTube-Begleitplugin | **1.2.1**, für Direktupload auf PeerTube installieren |
+
+## Version 2.8.7: Vorschaubild-Cache und Live-Korrektur
+
+HumHub liefert Mediathek-Vorschaubilder jetzt über einen eigenen Endpunkt aus. Die Bilddaten werden 24 Stunden im serverseitigen HumHub-Cache gespeichert; Browser erhalten sie erst nach erneuter Modul- und Medienberechtigungsprüfung (`private, no-store`). Aktualisierte lokale Medien verwenden einen neuen Cache-Schlüssel. Zulässig sind ausschließlich begrenzte Rasterbilder von statischen Thumbnail-/Preview-Pfaden der konfigurierten HTTPS-PeerTube-Adresse; Weiterleitungen werden nicht verfolgt. Ohne verfügbares Bild bleibt die Wiedergabetaste nutzbar.
+
+Die lokale Datenbank bleibt die Grundlage für Titel, Beschreibung, Ordner und Sichtbarkeit. Für das Nachladen fehlender Vorschaubildadressen werden PeerTube-Metadaten fünf Minuten zwischengespeichert. Schreibbestätigungen und Live-Statusprüfungen umgehen diesen Anzeige-Cache. Fehlgeschlagene Abrufe pausieren pro Cache-Schlüssel 60 Sekunden; eine Dateisperre verhindert gleichzeitige identische Abrufe auf demselben HumHub-Server. Bei mehreren HumHub-Servern ist für diese Sperren ein gemeinsames Runtime-Dateisystem nötig. Ein persistenter HumHub-Cache und ein beschreibbares Runtime-Verzeichnis sind erforderlich; ein Cache-Leeren verursacht erneut Erstabrufe. Es werden keine Videodateien oder Livestreams gespiegelt.
+
+Beim Erzeugen einer permanenten Livequelle wird eine leere Beschreibung weggelassen. Dies korrigiert den dokumentierten PeerTube-400-Fehler `Incorrect request parameters: description`. Bestehende Livequellen müssen dafür nicht gelöscht werden. Die separat protokollierten HTTP-429-Antworten des Moduls `local-link-preview` sind von dieser Korrektur nicht abgedeckt.
+
+Prüfung: `php tests/run.php` führt isolierte Regressionstests ohne echte Zugangsdaten aus. Die Tests ersetzen die API und HumHub-Abhängigkeiten durch Testdoubles; eine vollständige HumHub-/PeerTube-Abnahme ist damit nicht ersetzt. Für das Update Dateien austauschen und den HumHub-Cache leeren; keine neue Migration nötig. Anschließend Livequelle ohne Beschreibung, mehrmaliges Laden der Mediathek, private/geteilte Medien und die Anzeige nach Rechteentzug auf der Testinstanz prüfen. Diese Version ist durch die Repository-Änderung noch nicht auf einer laufenden Instanz installiert.
 
 ## Voraussetzungen und Einrichtung für andere Communities
 

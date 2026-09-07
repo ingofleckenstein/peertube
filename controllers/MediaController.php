@@ -38,7 +38,7 @@ class MediaController extends ContentContainerController
         // media-specific visibility checks.
         if (!Yii::$app->user->isGuest
             && $this->contentContainer instanceof Space
-            && in_array($action->id, ['index', 'view', 'password'], true)
+            && in_array($action->id, ['index', 'view', 'password', 'thumbnail'], true)
             && !$this->contentContainer->canAccessPrivateContent(Yii::$app->user->identity)) {
             $this->detachBehavior('containerControllerBehavior');
             $this->subLayout = '@humhub/modules/space/views/space/_layout';
@@ -683,6 +683,31 @@ class MediaController extends ContentContainerController
         return $u->isSystemAdmin() || $u->canManageAllContent() || $this->contentContainer->can(ManageMedia::class);
     }
 
+    public function actionThumbnail($id)
+    {
+        $this->assertModuleEnabled();
+        Yii::$app->response->headers->set('Cache-Control', 'no-store, private');
+        $media = $this->findMedia($id);
+        if (!$media->canBeViewedBy()) {
+            throw new ForbiddenHttpException();
+        }
+        try {
+            $this->hydrateThumbnailUrls([$media]);
+            $image = \selfsein\peertube\components\ThumbnailCache::get(
+                (string) $media->thumbnail_url,
+                (string) Yii::$app->getModule('peertube')->settings->get('baseUrl', ''),
+                (string) $media->updated_at
+            );
+        } catch (\Throwable $exception) {
+            // No remote redirect fallback: that would defeat the request limit.
+            throw new NotFoundHttpException('Vorschaubild derzeit nicht verfügbar.');
+        }
+        Yii::$app->response->format = Response::FORMAT_RAW;
+        Yii::$app->response->headers->set('Content-Type', $image['mime']);
+        Yii::$app->response->headers->set('X-Content-Type-Options', 'nosniff');
+        return $image['body'];
+    }
+
     public function actionPassword($id)
     {
         $this->assertModuleEnabled();
@@ -776,7 +801,7 @@ class MediaController extends ContentContainerController
             }
             try {
                 $client ??= new PeerTubeClient();
-                $video = $client->getVideo((string) $media->peertube_uuid);
+                $video = $client->getCachedVideo((string) $media->peertube_uuid);
                 $path = (string) ($video['thumbnailPath'] ?? $video['previewPath'] ?? '');
                 if ($path === '' || !str_starts_with($path, '/')) {
                     throw new \RuntimeException('PeerTube hat keinen gültigen Thumbnail-Pfad geliefert.');

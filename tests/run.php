@@ -1,0 +1,106 @@
+<?php
+// Isolated regression tests; no credentials, database or remote API required.
+namespace yii\helpers {
+    class FileHelper { public static function createDirectory($path, $mode = 0775) { if (!is_dir($path)) mkdir($path, $mode, true); } }
+}
+namespace humhub\modules\content\components { class ContentContainerController {} }
+namespace yii\web {
+    class ForbiddenHttpException extends \RuntimeException {}
+    class NotFoundHttpException extends \RuntimeException {}
+    class Response { const FORMAT_RAW = 'raw'; }
+}
+namespace selfsein\peertube\models {
+    class SettingsForm { const DEFAULT_EMBED_DOMAINS = 'example.org'; public static function normalizeEmbedDomains($value) { return ['example.org']; } }
+    class Media {
+        public static $item;
+        public $thumbnail_url = 'https://video.example.org/static/thumbnails/test.jpg';
+        public $updated_at = '1';
+        public $allowed = false;
+        public static function find() { return new class { function contentContainer($x) { return $this; } function andWhere($x) { return $this; } function one() { return Media::$item; } }; }
+        public static function tableName() { return 'media'; }
+        public function canBeViewedBy() { return $this->allowed; }
+    }
+}
+namespace selfsein\peertube\components {
+    function curl_init($url) { return (object)['url' => $url, 'options' => []]; }
+    function curl_setopt_array($handle, $options) { $handle->options = $options; }
+    function curl_exec($handle) {
+        $GLOBALS['requests'][] = $handle;
+        if (isset($handle->options[CURLOPT_WRITEFUNCTION])) {
+            $body = $GLOBALS['image'];
+            return $handle->options[CURLOPT_WRITEFUNCTION]($handle, $body) === strlen($body);
+        }
+        if (str_ends_with($handle->url, '/videos/live') && ($handle->options[CURLOPT_CUSTOMREQUEST] ?? '') === 'POST') return '{"video":{"uuid":"test-id"}}';
+        if (str_contains($handle->url, '/videos/live/')) return '{"streamKey":"test-key","rtmpUrl":"rtmp://example.org"}';
+        return '{"name":"Test","description":"Text"}';
+    }
+    function curl_getinfo($handle, $option) { return 200; }
+    function curl_error($handle) { return ''; }
+    function curl_close($handle) {}
+}
+namespace {
+    class Yii {
+        public static $app;
+        public static function getAlias($alias) { return sys_get_temp_dir() . '/peertube-regression-' . getmypid(); }
+        public static function warning(...$args) {}
+    }
+    class Cache {
+        public $data = []; public $now = 0;
+        public function get($key) { $row = $this->data[$key] ?? null; return $row && $row[1] > $this->now ? $row[0] : false; }
+        public function set($key, $value, $ttl) { $this->data[$key] = [$value, $this->now + $ttl]; return true; }
+    }
+    class App {
+        public $cache; public $response;
+        function getModule($id) { return (object)['settings' => new class { function get($key, $default = null) { return ['baseUrl'=>'https://video.example.org', 'username'=>'tester', 'password'=>'test-only'][$key] ?? $default; } }]; }
+    }
+    Yii::$app = new App(); Yii::$app->cache = new Cache();
+    Yii::$app->response = (object)['headers' => new class { function set($key, $value) {} }, 'format'=>null];
+    foreach (['CredentialVault', 'RemoteCache', 'ThumbnailCache', 'PeerTubeClient'] as $class) require dirname(__DIR__) . '/components/' . $class . '.php';
+    require dirname(__DIR__) . '/controllers/MediaController.php';
+    $count = 0;
+    function check($condition, $message) { global $count; if (!$condition) throw new \RuntimeException($message); ++$count; }
+    function fails($callback, $message) { try { $callback(); } catch (\RuntimeException $e) { check(true, $message); return; } check(false, $message); }
+    $loads = 0; $load = function () use (&$loads) { ++$loads; return ['ok'=>true]; };
+    $cache = '\\selfsein\\peertube\\components\\RemoteCache';
+    $cache::remember('success', 300, $load); $cache::remember('success', 300, $load);
+    check($loads === 1, 'Cache hit must avoid loader');
+    Yii::$app->cache->now = 301; $cache::remember('success', 300, $load); check($loads === 2, 'Expired cache must refresh');
+    $failures = 0; $bad = function () use (&$failures) { ++$failures; throw new \RuntimeException('secret'); };
+    fails(fn() => $cache::remember('error', 300, $bad), 'Initial failure');
+    fails(fn() => $cache::remember('error', 300, $bad), 'Cooldown');
+    check($failures === 1 && !str_contains(serialize(Yii::$app->cache->data), 'secret'), 'Failure cache must suppress retries without storing secrets');
+    Yii::$app->cache->now += 61; fails(fn() => $cache::remember('error', 300, $bad), 'Retry after cooldown'); check($failures === 2, 'Retry permitted');
+    $cache::remember('locked', 300, function () use ($cache) { fails(fn() => $cache::remember('locked', 300, fn()=>die('Duplicate load')), 'Parallel request must not load'); return 1; });
+    $client = new \selfsein\peertube\components\PeerTubeClient();
+    $property = new \ReflectionProperty($client, 'accessTokenCache'); $property->setValue($client, 'fake-token');
+    foreach (['', '  ', 'Eine Beschreibung'] as $description) {
+        $GLOBALS['requests'] = []; $client->createPermanentLive('Test', $description, 1, 'test-password');
+        $fields = $GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS];
+        check(trim($description) === '' ? !isset($fields['description']) : $fields['description'] === $description, 'Live description omission / preservation');
+        check($fields['privacy'] === '5' && $fields['videoPasswords[0]'] === 'test-password', 'Password protection retained');
+    }
+    $GLOBALS['requests'] = []; $client->getCachedVideo('test'); $client->getCachedVideo('test'); check(count($GLOBALS['requests']) === 1, 'Metadata cache');
+    $client->getVideo('test'); check(count($GLOBALS['requests']) === 2, 'Fresh verification bypasses cache');
+    $thumb = '\\selfsein\\peertube\\components\\ThumbnailCache';
+    foreach (['https://evil.example/static/thumbnails/a.jpg', 'http://video.example.org/static/thumbnails/a.jpg', 'https://video.example.org/api/v1/config', 'https://u:p@video.example.org/static/thumbnails/a.jpg', 'https://video.example.org/static/thumbnails/a.jpg?x=y'] as $url) {
+        fails(fn() => $thumb::get($url, 'https://video.example.org', '1'), 'Unsafe thumbnail rejected');
+    }
+    $GLOBALS['image'] = base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    $GLOBALS['requests'] = []; $url = 'https://video.example.org/static/thumbnails/test.jpg';
+    $thumb::get($url, 'https://video.example.org', '1'); $thumb::get($url, 'https://video.example.org', '1');
+    check(count($GLOBALS['requests']) === 1, 'Image cached');
+    $thumb::get($url, 'https://video.example.org', '2'); check(count($GLOBALS['requests']) === 2, 'Changed media refreshes image');
+    $GLOBALS['image'] = '<svg onload="alert(1)"></svg>'; fails(fn()=>$thumb::get($url,'https://video.example.org','3'), 'Non-raster response rejected');
+    $GLOBALS['image'] = str_repeat('a', 5 * 1024 * 1024 + 1); fails(fn()=>$thumb::get($url,'https://video.example.org','4'), 'Oversize rejected');
+    $controller = new \selfsein\peertube\controllers\MediaController();
+    $controller->contentContainer = (object)['moduleManager'=>new class { function isEnabled($id) { return true; } }];
+    \selfsein\peertube\models\Media::$item = new \selfsein\peertube\models\Media();
+    $before = count($GLOBALS['requests']);
+    fails(fn()=>$controller->actionThumbnail(1), 'Unauthorized access rejected even for cached image');
+    check(count($GLOBALS['requests']) === $before, 'Authorization precedes download');
+    \selfsein\peertube\models\Media::$item->allowed = true;
+    check($controller->actionThumbnail(1) !== '', 'Authorized cached image delivered');
+    \selfsein\peertube\models\Media::$item = null; fails(fn()=>$controller->actionThumbnail(1), 'Deleted record rejected');
+    foreach (glob(Yii::getAlias('') . '/*.lock') as $file) unlink($file); rmdir(Yii::getAlias(''));
+    echo "$count regression checks passed\n";
+}

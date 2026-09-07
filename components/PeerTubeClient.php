@@ -197,12 +197,18 @@ class PeerTubeClient
         return $this->request('GET', '/api/v1/videos/' . rawurlencode($id), null, $this->accessToken());
     }
 
+    /** Cached representation for display; verification and live polling stay fresh. */
+    public function getCachedVideo(string $id): array
+    {
+        $key = 'video|' . $this->baseUrl . '|' . hash('sha256', $this->username . "\0" . $this->password) . '|' . $id;
+        return RemoteCache::remember($key, 300, fn(): array => $this->getVideo($id));
+    }
+
     public function createPermanentLive(string $title, string $description, int $channelId, string $videoPassword): array
     {
         $token = $this->accessToken();
         $fields = [
             'name' => $title,
-            'description' => $description,
             'channelId' => (string) $channelId,
             'privacy' => '5',
             'videoPasswords[0]' => $videoPassword,
@@ -218,6 +224,9 @@ class PeerTubeClient
             // This is the best fit for interactive community livestreams.
             'latencyMode' => '3',
         ];
+        if (trim($description) !== '') {
+            $fields['description'] = $description;
+        }
         try {
             $result = $this->request('POST', '/api/v1/videos/live', $fields, $token, true);
         } catch (RuntimeException $exception) {
