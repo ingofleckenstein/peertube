@@ -1,6 +1,37 @@
-# PeerTube Mediathek für HumHub
+# Community-Mediathek: PeerTube-Modul für HumHub
 
-Version 2.6.1 für HumHub Community Edition 1.18.3 und PeerTube 8.2.x.
+**Das Repository `peertube` ist ein HumHub-Modul, kein PeerTube-Server-Plugin.** Der Modulordner gehört nach `protected/modules/peertube`. Es verbindet die HumHub-Community mit einem separat betriebenen PeerTube-Server: Video- und Audio-Uploads, Mediathek mit Ordnern und Themen, Stream-Beiträge, Berechtigungen, Inhaltswarnungen sowie OBS-Livestreams und die Übernahme fertiger Aufzeichnungen. Kommentare und Reaktionen bleiben bei der Umwandlung eines Livebeitrags erhalten.
+
+Das Gegenstück [peertube-plugin](https://github.com/ingofleckenstein/peertube-plugin) wird **auf PeerTube** installiert. Es ergänzt HumHub-Permalinks im Embed-Menü und die abgesicherte Direktupload-Brücke.
+
+## Referenzumgebung und Versionen
+
+Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betriebsdokumentation und im lokalen Core bestätigt. PeerTube **8.2.4** wurde am selben Tag über die öffentliche Server-API `/api/v1/config` der bestehenden Installation geprüft. Diese Angaben beschreiben die Referenzumgebung, keine vollständige Kompatibilitätsprüfung sämtlicher Funktionen.
+
+| Bestandteil | Stand / Voraussetzung |
+| --- | --- |
+| Dieses HumHub-Modul | **2.8.6** laut `module.json` |
+| HumHub | Referenz **CE 1.18.5**; Metadatenminimum **1.18.3** |
+| PeerTube-Server | Referenz **8.2.4**; bisherige Entwicklung auf 8.2.x ausgerichtet |
+| PeerTube-Begleitplugin | **1.2.1**, für Direktupload auf PeerTube installieren |
+
+## Voraussetzungen und Einrichtung für andere Communities
+
+Das Modul entstand für Selbstsein, ist aber technisch konfigurierbar und nicht auf bestimmte Benutzerkonten beschränkt. Folgende installationsbezogene Vorgaben müssen bei einer Übernahme geprüft werden:
+
+- In der Modulkonfiguration die vorbelegte PeerTube-URL `https://video.selbstsein.events` durch die eigene HTTPS-URL ersetzen und einen eigenen technischen PeerTube-Benutzer mit Kennwort sowie dessen Kanal-ID hinterlegen.
+- Die voreingestellten Embed-Domains `sexpositiv.community` und `community.selbstsein.events` durch die eigenen HumHub-Domains ersetzen. Diese Vorgaben sind konfigurierbar.
+- Für Direktuploads einen eigenen zufälligen gemeinsamen Schlüssel mit mindestens 32 Zeichen in beiden Komponenten speichern; im PeerTube-Plugin ausschließlich die eigenen erlaubten HTTPS-Ursprünge konfigurieren.
+- HumHubs Queue-Verarbeitung und Cronjobs betreiben: Sammelaktionen, Live-Überwachung und die automatische Übernahme von Aufzeichnungen benötigen Hintergrundverarbeitung.
+- Rechte für Nutzung, Uploads, Verwaltung und Livestreams in der eigenen Community festlegen. Inhaltswarnungen können angepasst werden; die Oberfläche ist deutsch.
+
+Zugangsdaten gehören ausschließlich in die Administrationskonfiguration. Das Modul speichert die technischen Zugangsdaten verschlüsselt; der HumHub-Anwendungsschlüssel muss bei Sicherung und Wiederherstellung erhalten bleiben. PHP benötigt unter anderem cURL und OpenSSL für API-Zugriffe und Verschlüsselung. Eine genaue laufende PHP-/Datenbankversion wurde für diese Dokumentation nicht festgestellt.
+
+**Einschätzung:** Für andere Communities grundsätzlich verwendbar, aber mit Einrichtung und Abnahme auf deren eigener Installation. Der Namespace `selfsein\peertube` ist eine technische Herkunftsbezeichnung. Eine `LICENSE`-Datei und eine Lizenzangabe in `module.json` fehlen derzeit; eine allgemeine Freigabe zur Weitergabe oder Änderung ist damit im Repository nicht dokumentiert. Dies sollte vor einer öffentlichen Veröffentlichung geklärt werden. Die GitHub-Repositories sind derzeit privat; andere Personen benötigen Zugriff.
+
+## Vorhandene Funktions- und Versionsnotizen
+
+Die folgenden Versionsnotizen beschreiben die Entwicklung bis 2.8.6. Ältere Versionsnummern sind historische Einträge, nicht die aktuelle Modulversion. Hinweise zur Deaktivierung wurden an den aktuellen Code angepasst.
 
 Version 2.6.1 erkennt eine noch offene PeerTube-Live-Sitzung unabhängig von unterschiedlichen Systemzeitzonen als aktives Sendesignal. Das Öffnen beziehungsweise automatische Aktualisieren des Live-Studios startet außerdem eine ausgefallene oder abgelaufene Prüfkette selbstheilend neu; veraltete Queue-Aufträge werden weiterhin über die Prüfgeneration entwertet.
 
@@ -148,7 +179,7 @@ Das Passwort steht nicht in Embed-URLs oder im ausgelieferten Seiten-HTML. Ein b
 
 ## Deinstallation
 
-Das Deaktivieren/Deinstallieren des Moduls führt HumHubs Deinstallationsmigration aus und entfernt die lokale Mediathek-Tabelle samt zugehörigen Stream-Inhalten. PeerTube-Dateien werden dabei nicht automatisch massenweise gelöscht. Für normale Updates das Modul aktiviert lassen und nur die Dateien austauschen.
+Beim normalen Deaktivieren bleiben die lokalen Daten erhalten (`Module::disable()`). Nur wenn die administrative Option `allowDataDeletionOnDisable` ausdrücklich gesetzt wurde, wird HumHubs Deinstallationspfad ausgeführt. PeerTube-Dateien werden dabei nicht automatisch massenweise gelöscht. Das Löschen einzelner Medien kann dagegen bei aktivierter Einstellung `deleteRemote` auch die Remote-Datei entfernen. Für Updates das Modul aktiviert lassen, Dateien austauschen und ausstehende Migrationen ausführen.
 ## Version 2.7.0
 
 - Geplante Livestreams werden sofort im Stream angekündigt.
