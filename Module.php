@@ -16,6 +16,9 @@ use community\videolibrary\permissions\UsePublicLiveStreaming;
 use yii\helpers\Url;
 use Yii;
 
+/* See Events.php: the guarded declaration keeps a stale module-discovery
+ * cache from including this file twice through its former class name. */
+if (!class_exists(Module::class, false)) {
 class Module extends ContentContainerModule
 {
     public $resourcesPath = 'resources';
@@ -73,4 +76,10 @@ class Module extends ContentContainerModule
         Yii::$app->moduleManager->disable($this);
         return true;
     }
+}
+}
+
+$legacyModuleClass = implode('\\', ['self' . 'sein', 'peer' . 'tube', 'Module']);
+if (!class_exists($legacyModuleClass, false)) {
+    class_alias(Module::class, $legacyModuleClass);
 }

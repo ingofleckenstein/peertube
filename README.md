@@ -10,10 +10,16 @@ Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betrieb
 
 | Bestandteil | Stand / Voraussetzung |
 | --- | --- |
-| Dieses HumHub-Modul | **2.9.0** laut `module.json` |
+| Dieses HumHub-Modul | **2.10.1** laut `module.json` |
 | HumHub | Referenz **CE 1.18.5**; Metadatenminimum **1.18.3** |
 | PeerTube-Server | Referenz **8.2.4**; bisherige Entwicklung auf 8.2.x ausgerichtet |
 | PeerTube-Begleitplugin | **1.2.1**, für Direktupload auf PeerTube installieren |
+
+## Version 2.10.1: Bootstrap-Kompatibilität nach Namespace-Update
+
+Beim Upgrade von 2.9.x auf 2.10.0 konnte HumHubs Modul-Erkennung noch eine zwischengespeicherte ältere Konfiguration verwenden. Dadurch wurde die aktuelle Event-Datei in einzelnen Prozessen über zwei Klassennamen eingebunden. Die Bootstrap-Klassen sind nun gegen eine zweite Einbindung geschützt und stellen für einen solchen Alt-Cache einmalig einen kompatiblen Klassenalias bereit. Der GitHub-Modulmanager registriert bei einem Update ein bereits geladenes Modul nicht mehr erneut im selben Request.
+
+Es werden keine Tabellen, Medien, Live-Sitzungen, Einstellungen oder Zuordnungen verändert. Nach dem Deployment kann `php protected/yii cache/flush-all` sicher ausgeführt werden; danach verwenden neue Requests ausschließlich die aktuelle Konfiguration.
 
 ## Version 2.9.0: Transkript, Zeitmarken und Suche
 

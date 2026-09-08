@@ -18,6 +18,15 @@ use yii\base\WidgetEvent;
 use yii\helpers\Html;
 use humhub\modules\content\components\ContentContainerActiveRecord;
 
+/*
+ * HumHub stores module config.php files in its module-discovery cache.  A
+ * process with a cache created before 2.10 can therefore still ask Yii to
+ * autoload the former Events class after the new file has been deployed.
+ * Yii's loader uses include (not include_once), so declaring this class
+ * unconditionally would redeclare the canonical class when both names are
+ * encountered in one process.
+ */
+if (!class_exists(Events::class, false)) {
 class Events
 {
     public static function onSpaceMenuInit($event): void
@@ -140,4 +149,12 @@ class Events
 
         return null;
     }
+}
+}
+
+// Keep one pre-2.10 cached module configuration bootable until HumHub has
+// rebuilt its discovery cache. This does not change persisted module data.
+$legacyEventsClass = implode('\\', ['self' . 'sein', 'peer' . 'tube', 'Events']);
+if (!class_exists($legacyEventsClass, false)) {
+    class_alias(Events::class, $legacyEventsClass);
 }
