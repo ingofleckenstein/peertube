@@ -17,7 +17,7 @@ Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betrieb
 
 ## Version 2.9.0: Transkript, Zeitmarken und Suche
 
-Beim ersten berechtigten Laden eines Videos fordert HumHub bei PeerTube eine automatische Transkription an. Bis PeerTube die zeitcodierten WebVTT-Untertitel bereitstellt, steht unter dem Player **„Transkript wird erstellt.“**. Anschließend öffnet der Button ein Popup mit anklickbaren Zeitmarken; der aktuell gesprochene Abschnitt wird bei der Wiedergabe hervorgehoben.
+Beim ersten berechtigten Laden eines Videos fordert HumHub bei PeerTube eine automatische Transkription an. Bis PeerTube die zeitcodierten WebVTT-Untertitel bereitstellt, steht direkt unter dem Player **„Transkript wird erstellt.“**. Anschließend klappt dort eine schmale Transkriptansicht mit anklickbaren Zeitmarken auf; der aktuell gesprochene Abschnitt wird bei der Wiedergabe hervorgehoben und das vollständige Transkript kann in die Zwischenablage kopiert werden.
 
 Die Untertitel werden ausschließlich nach der bestehenden Medienberechtigungsprüfung von PeerTube abgerufen und lokal gespeichert. Titel, Beschreibung, Themen und der unsichtbare Transkripttext werden über HumHubs `ContentSearchService` in den normalen Content-Index aufgenommen. Suchtreffer bleiben deshalb die jeweiligen Video-Posts und unterliegen weiterhin den nativen HumHub-Rechte-, Space- und Autorfiltern. Die Migration `m260907_000017_transcript` ist erforderlich. PeerTube muss die automatische Transkription aktiviert haben; manuell hinterlegte WebVTT-Untertitel werden ebenfalls übernommen.
 

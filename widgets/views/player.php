@@ -51,25 +51,42 @@ $thumbnailUrl = $media->getDisplayThumbnailUrl();
         <iframe id="<?= Html::encode($id) ?>" src="about:blank" data-src="<?= Html::encode($embedUrl) ?>" title="<?= Html::encode($media->title) ?>" loading="lazy" allow="fullscreen; picture-in-picture" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
     <?php endif; ?>
 </div>
-<div class="pt-transcript-control mt-2">
-    <button type="button" class="btn btn-default btn-sm" id="<?= Html::encode($id) ?>-transcript" disabled aria-expanded="false">
-        <i class="fa fa-file-text-o" aria-hidden="true"></i> <span>Transkript wird erstellt.</span>
+<div class="pt-transcript-dock" id="<?= Html::encode($id) ?>-transcript-dock">
+    <button type="button" class="pt-transcript-toggle" id="<?= Html::encode($id) ?>-transcript" disabled aria-expanded="false" aria-controls="<?= Html::encode($id) ?>-transcript-panel">
+        <i class="fa fa-file-text-o" aria-hidden="true"></i>
+        <span>Transkript wird erstellt.</span>
+        <i class="fa fa-chevron-down pt-transcript-chevron" aria-hidden="true"></i>
     </button>
-</div>
-<div class="modal fade" id="<?= Html::encode($id) ?>-transcript-modal" tabindex="-1" role="dialog" aria-labelledby="<?= Html::encode($id) ?>-transcript-title" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Schließen"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="<?= Html::encode($id) ?>-transcript-title">Transkript</h4>
-            </div>
-            <div class="modal-body">
-                <div id="<?= Html::encode($id) ?>-transcript-list" class="list-group" aria-live="polite"></div>
-            </div>
+    <section class="pt-transcript-panel" id="<?= Html::encode($id) ?>-transcript-panel" hidden aria-label="Transkript">
+        <div class="pt-transcript-panel-header">
+            <strong>Transkript</strong>
+            <button type="button" class="btn btn-default btn-xs" id="<?= Html::encode($id) ?>-transcript-copy" disabled>
+                <i class="fa fa-clipboard" aria-hidden="true"></i> Kopieren
+            </button>
         </div>
-    </div>
+        <div id="<?= Html::encode($id) ?>-transcript-list" class="pt-transcript-list" aria-live="polite"></div>
+    </section>
 </div>
 <?php
+$this->registerCss(<<<'CSS'
+.pt-transcript-dock { width: 100%; margin: -1px 0 0 auto; text-align: right; }
+.pt-transcript-toggle { display: inline-flex; max-width: 100%; align-items: center; gap: 7px; padding: 6px 9px; border: 0; border-radius: 0 0 5px 5px; background: rgba(255, 255, 255, .82); color: #4b5a67; font-size: 12px; line-height: 16px; text-align: left; box-shadow: 0 1px 4px rgba(0, 0, 0, .13); }
+.pt-transcript-toggle:hover, .pt-transcript-toggle:focus { background: rgba(255, 255, 255, .98); color: #263746; text-decoration: none; }
+.pt-transcript-toggle:disabled { cursor: wait; opacity: .74; }
+.pt-transcript-toggle > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-transcript-chevron { margin-left: 2px; transition: transform .18s ease; }
+.pt-transcript-dock.is-open .pt-transcript-chevron { transform: rotate(180deg); }
+.pt-transcript-panel { display: flex; max-height: calc(100vh - 24px); overflow: hidden; flex-direction: column; margin-top: 4px; border: 1px solid #dbe3e8; border-radius: 5px; background: rgba(255, 255, 255, .97); box-shadow: 0 3px 11px rgba(0, 0, 0, .12); text-align: left; }
+.pt-transcript-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 9px; border-bottom: 1px solid #e5eaed; color: #34495e; font-size: 12px; }
+.pt-transcript-list { min-height: 0; overflow-y: auto; flex: 1 1 auto; }
+.pt-transcript-cue { display: block; width: 100%; padding: 7px 9px; border: 0; border-bottom: 1px solid #f0f2f4; background: transparent; color: #87939c; font-size: 13px; line-height: 1.4; text-align: left; transition: color .16s ease, background .16s ease; }
+.pt-transcript-cue:hover, .pt-transcript-cue:focus { background: #f4f8fa; color: #34495e; }
+.pt-transcript-cue.is-past { color: #5c6973; }
+.pt-transcript-cue.is-active { background: #e9f5f2; color: #177d70; font-weight: 700; }
+.pt-transcript-cue.is-upcoming { color: #9ba6ad; }
+.pt-transcript-time { display: inline-block; min-width: 42px; margin-right: 5px; color: #81909a; font-variant-numeric: tabular-nums; font-size: 11px; }
+.pt-transcript-cue.is-active .pt-transcript-time { color: #177d70; }
+CSS);
 $js = <<<'JS'
 (function (id, passwordUrl, embedUrl, transcriptUrl, title) {
     var started = false;
@@ -79,8 +96,10 @@ $js = <<<'JS'
     var transcriptOpen = false;
     var pollTimer = null;
     var transcriptButton = document.getElementById(id + '-transcript');
+    var transcriptDock = document.getElementById(id + '-transcript-dock');
+    var transcriptPanel = document.getElementById(id + '-transcript-panel');
+    var transcriptCopyButton = document.getElementById(id + '-transcript-copy');
     var transcriptList = document.getElementById(id + '-transcript-list');
-    var transcriptModal = document.getElementById(id + '-transcript-modal');
 
     function formatTime(seconds) {
         seconds = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -93,6 +112,7 @@ $js = <<<'JS'
         if (!transcriptButton) return;
         transcriptButton.disabled = !enabled;
         transcriptButton.querySelector('span').textContent = label;
+        if (transcriptCopyButton) transcriptCopyButton.disabled = !enabled;
     }
     function renderTranscript() {
         if (!transcriptList) return;
@@ -100,10 +120,10 @@ $js = <<<'JS'
         cues.forEach(function (cue, index) {
             var item = document.createElement('button');
             item.type = 'button';
-            item.className = 'list-group-item text-start';
+            item.className = 'pt-transcript-cue is-upcoming';
             item.dataset.cueIndex = String(index);
             var timestamp = document.createElement('small');
-            timestamp.className = 'text-muted me-2';
+            timestamp.className = 'pt-transcript-time';
             timestamp.textContent = formatTime(cue.start);
             item.appendChild(timestamp);
             item.appendChild(document.createTextNode(' ' + cue.text));
@@ -123,11 +143,15 @@ $js = <<<'JS'
         }
         if (next === activeCue) return;
         var previous = transcriptList && transcriptList.querySelector('[data-cue-index="' + activeCue + '"]');
-        if (previous) previous.classList.remove('active');
+        if (previous) {
+            previous.classList.remove('is-active');
+            previous.classList.add('is-past');
+        }
         activeCue = next;
         var current = transcriptList && transcriptList.querySelector('[data-cue-index="' + activeCue + '"]');
         if (current) {
-            current.classList.add('active');
+            current.classList.remove('is-past', 'is-upcoming');
+            current.classList.add('is-active');
             if (transcriptOpen) current.scrollIntoView({block: 'nearest', behavior: 'smooth'});
         }
     }
@@ -135,16 +159,38 @@ $js = <<<'JS'
         if (!transcriptOpen || !player || !cues.length) return;
         try { updateActiveCue(await player.getCurrentTime()); } catch (_) { /* A loading iframe has no current time yet. */ }
     }
-    function showTranscript() {
-        transcriptOpen = true;
-        transcriptButton.setAttribute('aria-expanded', 'true');
-        if (window.jQuery && window.jQuery.fn.modal) window.jQuery(transcriptModal).modal('show');
-        else { transcriptModal.style.display = 'block'; transcriptModal.classList.add('in'); transcriptModal.setAttribute('aria-hidden', 'false'); }
+    function toggleTranscript() {
+        transcriptOpen = !transcriptOpen;
+        transcriptButton.setAttribute('aria-expanded', transcriptOpen ? 'true' : 'false');
+        transcriptPanel.hidden = !transcriptOpen;
+        transcriptDock.classList.toggle('is-open', transcriptOpen);
         syncActiveCue();
     }
-    function hideTranscript() {
-        transcriptOpen = false;
-        transcriptButton.setAttribute('aria-expanded', 'false');
+    function transcriptText() {
+        return cues.map(function (cue) { return String(cue.text || '').trim(); }).filter(Boolean).join('\n');
+    }
+    async function copyTranscript() {
+        var text = transcriptText();
+        if (!text) return;
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                var helper = document.createElement('textarea');
+                helper.value = text;
+                helper.setAttribute('readonly', '');
+                helper.style.position = 'fixed';
+                helper.style.opacity = '0';
+                document.body.appendChild(helper);
+                helper.select();
+                if (!document.execCommand('copy')) throw new Error('Kopieren nicht verfügbar');
+                helper.remove();
+            }
+            transcriptCopyButton.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i> Kopiert';
+            window.setTimeout(function () { transcriptCopyButton.innerHTML = '<i class="fa fa-clipboard" aria-hidden="true"></i> Kopieren'; }, 1800);
+        } catch (_) {
+            transcriptCopyButton.textContent = 'Kopieren nicht möglich';
+        }
     }
     async function loadTranscript() {
         try {
@@ -205,9 +251,17 @@ $js = <<<'JS'
     }
     var button = document.getElementById(id + '-reveal') || document.getElementById(id + '-load');
     if (button) button.addEventListener('click', start); else start();
-    if (transcriptButton) transcriptButton.addEventListener('click', showTranscript);
-    if (transcriptModal && window.jQuery) window.jQuery(transcriptModal).on('hidden.bs.modal', hideTranscript);
-})(%s, %s, %s, %s, %s);
+    if (transcriptButton) transcriptButton.addEventListener('click', toggleTranscript);
+    if (transcriptCopyButton) transcriptCopyButton.addEventListener('click', copyTranscript);
+    window.setInterval(syncActiveCue, 700);
+    loadTranscript();
+})(__PT_ID__, __PT_PASSWORD_URL__, __PT_EMBED_URL__, __PT_TRANSCRIPT_URL__, __PT_TITLE__);
 JS;
-$this->registerJs(sprintf($js, Json::htmlEncode($id), Json::htmlEncode($passwordUrl), Json::htmlEncode($embedUrl), Json::htmlEncode($transcriptUrl), Json::htmlEncode((string) $media->title)));
+$this->registerJs(strtr($js, [
+    '__PT_ID__' => Json::htmlEncode($id),
+    '__PT_PASSWORD_URL__' => Json::htmlEncode($passwordUrl),
+    '__PT_EMBED_URL__' => Json::htmlEncode($embedUrl),
+    '__PT_TRANSCRIPT_URL__' => Json::htmlEncode($transcriptUrl),
+    '__PT_TITLE__' => Json::htmlEncode((string) $media->title),
+]));
 ?>
