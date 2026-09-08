@@ -103,6 +103,12 @@ namespace {
         fails(fn()=>$client->createPermanentLive('Test', $invalidDescription, 1, 'test-password'), 'Invalid live description rejected');
         check($GLOBALS['requests'] === [], 'Validation precedes PeerTube request');
     }
+    $GLOBALS['requests'] = []; $client->updatePublic('test-id', 'Test', '');
+    $fields = $GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS];
+    check(!isset($fields['description']), 'Empty description stays omitted for a waiting public live source');
+    $GLOBALS['requests'] = []; $client->updatePublic('test-id', 'Test', '', null, true);
+    $fields = $GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS];
+    check(array_key_exists('description', $fields) && $fields['description'] === '', 'Empty replay description explicitly clears inherited waiting text');
     check(str_contains(\community\videolibrary\components\LiveError::message(new \RuntimeException('max_user_lives_limit_reached')), 'technischen Videokontos'), 'User live quota explanation');
     check(str_contains(\community\videolibrary\components\LiveError::message(new \RuntimeException('max_instance_lives_limit_reached')), 'Videoservers'), 'Server live quota explanation');
     check(!str_contains(\community\videolibrary\components\LiveError::message(new \RuntimeException('secret-payload')), 'secret-payload'), 'No raw remote errors in UI');

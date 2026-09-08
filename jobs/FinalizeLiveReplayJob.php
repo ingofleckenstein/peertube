@@ -11,6 +11,8 @@ use community\videolibrary\components\UserPlaylistService;
 use community\videolibrary\components\VideoPasswordVault;
 use community\videolibrary\models\LiveSession;
 use community\videolibrary\models\Media;
+use humhub\modules\content\models\Content;
+use humhub\modules\space\models\Space;
 use Yii;
 
 class FinalizeLiveReplayJob extends ActiveJob
@@ -52,7 +54,10 @@ class FinalizeLiveReplayJob extends ActiveJob
             $source = $session->source;
             $password = $session->is_public ? '' : $source->getVideoPassword();
             if ($session->is_public) {
-                $client->updatePublic($uuid, (string)$session->title, (string)$session->description);
+                // Public replays inherit the waiting channel description. Send
+                // an explicitly empty event description as an update so the
+                // inherited text cannot make strict verification loop forever.
+                $client->updatePublic($uuid, (string)$session->title, (string)$session->description, null, true);
             } else {
                 $client->update($uuid, (string)$session->title, (string)$session->description, $password);
             }
@@ -143,6 +148,12 @@ class FinalizeLiveReplayJob extends ActiveJob
                 'sync_status'=>'synced','topics'=>'[]','folder_id'=>null,
             ]);
             $media->setPublishToStream(true);
+            // Keep a normal Space livestream in that Space after the live
+            // post becomes a recording. Public events intentionally stay
+            // public and are handled by the separate public-live flow.
+            if (!$session->is_public && $container instanceof Space) {
+                $media->content->visibility = Content::VISIBILITY_PRIVATE;
+            }
             // Queue workers have no logged-in identity. Preserve authorship
             // explicitly from the original live content before HumHub saves
             // the temporary Content row.

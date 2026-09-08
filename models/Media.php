@@ -79,7 +79,11 @@ class Media extends ContentActiveRecord
             return false;
         }
 
-        if ($this->isCommunityVisible()
+        // A private Space item must never be opened up again merely because
+        // its library's default folder is public. This is how recordings of
+        // normal Space livestreams remain limited to Space members.
+        $privateSpaceItem = $this->content->container instanceof Space && $this->content->isPrivate();
+        if ((!$privateSpaceItem && $this->isCommunityVisible())
             || $this->content->isNewRecord
             || $this->content->canView($user)) {
             return true;

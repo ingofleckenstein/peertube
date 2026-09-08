@@ -154,7 +154,7 @@ class PeerTubeClient
     }
 
     /** Update a public video without adding a password or HumHub-only embed rule. */
-    public function updatePublic(string $id, string $title, string $description, ?array $thumbnail = null): void
+    public function updatePublic(string $id, string $title, string $description, ?array $thumbnail = null, bool $clearEmptyDescription = false): void
     {
         $fields = [
             'name' => $title,
@@ -162,7 +162,11 @@ class PeerTubeClient
             'commentsPolicy' => '2',
             'downloadEnabled' => 'false',
         ];
-        if (trim($description) !== '') {
+        // A newly created permanent live source must omit an empty description:
+        // PeerTube rejects that field during creation. A finished replay, on
+        // the other hand, inherits the waiting channel's text. It must be
+        // explicitly cleared so HumHub can verify and import the replay.
+        if (trim($description) !== '' || $clearEmptyDescription) {
             $fields['description'] = $description;
         }
         if ($thumbnail) {

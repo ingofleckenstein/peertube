@@ -2,6 +2,7 @@
 namespace community\videolibrary\models;
 use humhub\modules\content\components\ContentActiveRecord;
 use humhub\modules\content\models\Content;
+use humhub\modules\space\models\Space;
 use humhub\modules\user\helpers\UserHelper;
 use humhub\modules\user\models\User;
 use community\videolibrary\widgets\LiveWallEntry;
@@ -27,6 +28,17 @@ class LiveSession extends ContentActiveRecord
         $service='humhub\\modules\\sharebetween\\services\\ShareAccessService';
         return class_exists($service) && $service::canViewThroughShare($this,$user);
     }
-    public function beforeSave($insert): bool { if($insert) $this->content->visibility=Content::VISIBILITY_PUBLIC; return parent::beforeSave($insert); }
+    public function beforeSave($insert): bool
+    {
+        if ($insert) {
+            // A normal live session started inside a Space belongs to that
+            // Space's members. Only the explicitly public event flow may
+            // create a publicly visible Space post.
+            $this->content->visibility = !$this->is_public && $this->content->container instanceof Space
+                ? Content::VISIBILITY_PRIVATE
+                : Content::VISIBILITY_PUBLIC;
+        }
+        return parent::beforeSave($insert);
+    }
     public function getSource(){ return $this->hasOne(LiveSource::class,['id'=>'source_id']); }
 }

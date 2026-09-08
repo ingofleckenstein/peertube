@@ -108,6 +108,13 @@ class MediaController extends ContentContainerController
                     return false;
                 }
 
+                // A public folder may make public videos browsable by other
+                // community members, but it must not reveal a recording that
+                // was explicitly kept private for its Space.
+                if ($content->isPrivate() && !$content->canView()) {
+                    return false;
+                }
+
                 return $publicFolder || $publicUnfiled
                     || ($content->getStateService()->isPublished() && $content->canView());
             } catch (\Throwable $exception) {
