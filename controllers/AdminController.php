@@ -1,22 +1,23 @@
 <?php
 
-namespace selfsein\peertube\controllers;
+namespace community\videolibrary\controllers;
 
 use humhub\modules\admin\components\Controller;
-use selfsein\peertube\components\PeerTubeClient;
-use selfsein\peertube\models\SettingsForm;
+use community\videolibrary\components\PeerTubeClient;
+use community\videolibrary\models\SettingsForm;
 use Yii;
 use yii\filters\VerbFilter;
-use selfsein\peertube\models\Media;
-use selfsein\peertube\jobs\ProtectExistingJob;
-use selfsein\peertube\jobs\SyncEmbedDomainsJob;
+use community\videolibrary\models\Media;
+use community\videolibrary\jobs\ProtectExistingJob;
+use community\videolibrary\jobs\SyncEmbedDomainsJob;
+use community\videolibrary\jobs\SyncUserPlaylistsJob;
 
 class AdminController extends Controller
 {
     public function behaviors(): array
     {
         $behaviors = parent::behaviors();
-        $behaviors['verbs'] = ['class' => VerbFilter::class, 'actions' => ['test' => ['post'], 'migrate' => ['post'], 'protect-existing' => ['post'], 'sync-embed-domains' => ['post'], 'clear-alert' => ['post']]];
+        $behaviors['verbs'] = ['class' => VerbFilter::class, 'actions' => ['test' => ['post'], 'migrate' => ['post'], 'protect-existing' => ['post'], 'sync-embed-domains' => ['post'], 'sync-user-playlists' => ['post'], 'clear-alert' => ['post']]];
         return $behaviors;
     }
 
@@ -51,7 +52,14 @@ class AdminController extends Controller
         $databaseCurrent = $databaseCurrent && $liveSchema !== null
             && in_array('poll_generation', $liveSchema->columnNames, true)
             && in_array('start_datetime', $liveSchema->columnNames, true)
-            && in_array('end_datetime', $liveSchema->columnNames, true);
+            && in_array('end_datetime', $liveSchema->columnNames, true)
+            && in_array('is_public', $liveSchema->columnNames, true)
+            && in_array('public_categories', $liveSchema->columnNames, true)
+            && Yii::$app->db->schema->getTableSchema('{{%peertube_live_capacity}}', true) !== null;
+        $databaseCurrent = $databaseCurrent
+            && Yii::$app->db->schema->getTableSchema('{{%peertube_public_live_category}}', true) !== null
+            && Yii::$app->db->schema->getTableSchema('{{%peertube_public_live_session_category}}', true) !== null
+            && Yii::$app->db->schema->getTableSchema('{{%peertube_user_playlist}}', true) !== null;
         $unprotectedCount = $databaseCurrent ? Media::find()->where(['or', ['password_encrypted' => null], ['password_encrypted' => '']])->count() : 0;
         $adminAlert = (string) Yii::$app->getModule('peertube')->settings->get('adminAlert', '');
         return $this->render('index', ['model' => $model, 'databaseCurrent' => $databaseCurrent, 'unprotectedCount' => $unprotectedCount, 'adminAlert' => $adminAlert]);
@@ -61,7 +69,7 @@ class AdminController extends Controller
     {
         try {
             $config = (new PeerTubeClient())->testConnection();
-            $this->view->success('PeerTube erreichbar: Version ' . ($config['serverVersion'] ?? 'unbekannt'));
+            $this->view->success('Video-Dienst erreichbar: Version ' . ($config['serverVersion'] ?? 'unbekannt'));
         } catch (\Throwable $exception) {
             $this->view->error($exception->getMessage());
         }
@@ -76,7 +84,7 @@ class AdminController extends Controller
                 throw new \RuntimeException('Die Datenbankmigration ist fehlgeschlagen. Bitte das HumHub-Protokoll prüfen.');
             }
             Yii::$app->db->schema->refresh();
-            $this->view->success('Die PeerTube-Moduldatenbank wurde aktualisiert.');
+            $this->view->success('Die Videomodul-Datenbank wurde aktualisiert.');
         } catch (\Throwable $exception) {
             $this->view->error($exception->getMessage());
         }
@@ -94,6 +102,13 @@ class AdminController extends Controller
     {
         Yii::$app->queue->push(new SyncEmbedDomainsJob());
         $this->view->success('Die Domainfreigabe wurde als Hintergrundauftrag eingeplant.');
+        return $this->redirect(['index']);
+    }
+
+    public function actionSyncUserPlaylists()
+    {
+        Yii::$app->queue->push(new SyncUserPlaylistsJob());
+        $this->view->success('Die Zuordnung bestehender interner Videos zu persönlichen Playlisten wurde als Hintergrundauftrag eingeplant.');
         return $this->redirect(['index']);
     }
 

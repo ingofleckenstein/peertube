@@ -1,16 +1,19 @@
 <?php
 
-namespace selfsein\peertube\controllers;
+namespace community\videolibrary\controllers;
 
 use humhub\modules\content\components\ContentContainerController;
 use humhub\modules\space\models\Space;
-use selfsein\peertube\components\AccessPolicy;
-use selfsein\peertube\components\PeerTubeClient;
-use selfsein\peertube\components\VideoPasswordVault;
-use selfsein\peertube\models\LiveForm;
-use selfsein\peertube\models\LiveSession;
-use selfsein\peertube\models\LiveSource;
-use selfsein\peertube\jobs\FinalizeLiveReplayJob;
+use community\videolibrary\components\AccessPolicy;
+use community\videolibrary\components\LiveCapacity;
+use community\videolibrary\components\PeerTubeClient;
+use community\videolibrary\components\PublicLiveService;
+use community\videolibrary\components\VideoPasswordVault;
+use community\videolibrary\models\LiveForm;
+use community\videolibrary\models\LiveSession;
+use community\videolibrary\models\LiveSource;
+use community\videolibrary\models\PublicLiveCategory;
+use community\videolibrary\jobs\FinalizeLiveReplayJob;
 use Yii;
 use yii\filters\VerbFilter;
 use yii\web\ForbiddenHttpException;
@@ -21,7 +24,9 @@ use humhub\modules\file\models\File;
 
 class LiveController extends ContentContainerController
 {
-    public const DIAGNOSTICS_VERSION = '2.8.9';
+    public const DIAGNOSTICS_VERSION = '2.9.1';
+
+    private bool $replacedMissingSource = false;
 
     public function behaviors(): array
     {
@@ -49,29 +54,61 @@ class LiveController extends ContentContainerController
         $loaded = $model->load(Yii::$app->request->post());
         if ($loaded) $model->announcementImage = UploadedFile::getInstance($model, 'announcementImage');
         if ($loaded && $model->validate()) {
-            try {
-                $source = $this->sourceForCurrentUser($model);
-            } catch (\Throwable $exception) {
-                $model->addError('title', \selfsein\peertube\components\LiveError::report(
-                    $exception, 'prepare-source', self::DIAGNOSTICS_VERSION
-                ));
-                return $this->render('start', [
-                    'model' => $model,
-                    'liveManagementUrl' => \selfsein\peertube\components\LiveError::managementUrl(
-                        $exception, (string)Yii::$app->getModule('peertube')->settings->get('baseUrl', '')
-                    ),
-                ]);
+            $isPublic = !empty($model->publicEvent);
+            if ($isPublic && !AccessPolicy::canStartPublicLive()) {
+                return $this->render('denied');
             }
             $now = date('Y-m-d H:i:s');
             $scheduledAt = null;
             $scheduledEnd = null;
-            if ($model->schedule) {
+            if (!empty($model->schedule)) {
                 $scheduledAt = date('Y-m-d H:i:s', strtotime((string)$model->scheduledAt));
                 if (strtotime($scheduledAt) < time() + 60) {
                     $model->addError('scheduledAt', 'Der geplante Beginn muss mindestens eine Minute in der Zukunft liegen.');
                     return $this->render('start', ['model' => $model]);
                 }
                 $scheduledEnd = date('Y-m-d H:i:s', strtotime($scheduledAt) + ((int)$model->durationMinutes * 60));
+                if ($isPublic) {
+                    try {
+                        PublicLiveService::assertNoScheduleConflict($scheduledAt, $scheduledEnd);
+                    } catch (\Throwable $exception) {
+                        $model->addError('scheduledAt', $exception->getMessage());
+                        return $this->render('start', ['model' => $model]);
+                    }
+                }
+            }
+            try {
+                // The reservation holds a database lock until the LiveSession is
+                // saved, so two simultaneous requests cannot both take the last
+                // available slot.
+                $capacityReservation = LiveCapacity::reserve($scheduledAt, $scheduledEnd, $isPublic);
+            } catch (\Throwable $exception) {
+                Yii::error($exception, 'peertube');
+                $model->addError('title', 'Die verfügbare Livestream-Kapazität kann derzeit nicht geprüft werden. Bitte informiere die Administration.');
+                return $this->render('start', ['model' => $model]);
+            }
+            if ($capacityReservation === null) {
+                $model->addError('title', 'Es sind zu viele gleichzeitige Streams aktiv. Versuche es später erneut.');
+                return $this->render('start', ['model' => $model]);
+            }
+            try {
+                // The database lock held by the capacity reservation makes the
+                // shared source check race-safe even when no numeric cap is set.
+                if ($isPublic && $scheduledAt && $scheduledEnd) {
+                    PublicLiveService::assertNoScheduleConflict($scheduledAt, $scheduledEnd);
+                }
+                $source = $isPublic ? PublicLiveService::source() : $this->sourceForCurrentUser($model);
+            } catch (\Throwable $exception) {
+                $capacityReservation->rollback();
+                $model->addError('title', \community\videolibrary\components\LiveError::report(
+                    $exception, 'prepare-source', self::DIAGNOSTICS_VERSION
+                ));
+                return $this->render('start', [
+                    'model' => $model,
+                    'liveManagementUrl' => \community\videolibrary\components\LiveError::managementUrl(
+                        $exception, (string)Yii::$app->getModule('peertube')->settings->get('baseUrl', '')
+                    ),
+                ]);
             }
             $session = new LiveSession($this->contentContainer, [
                 'source_id' => $source->id,
@@ -81,19 +118,32 @@ class LiveController extends ContentContainerController
                 'title' => $model->title,
                 'description' => $model->description,
                 'status' => $scheduledAt ? 'scheduled' : 'preparing',
+                'is_public' => $isPublic ? 1 : 0,
                 'start_datetime' => $scheduledAt,
                 'end_datetime' => $scheduledEnd,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
             if (!$session->save()) {
+                $capacityReservation->rollback();
                 Yii::error($session->getErrors(), 'peertube');
                 throw new \RuntimeException('Der Livestream-Beitrag konnte nicht angelegt werden.');
+            }
+            $capacityReservation->commit();
+            if ($isPublic) {
+                try {
+                    PublicLiveService::setCategories($session, (array) $model->publicCategories, (string) $model->newPublicCategories);
+                } catch (\Throwable $exception) {
+                    Yii::error($exception, 'peertube');
+                    $this->view->warning('Der öffentliche Termin wurde angelegt, aber seine Kategorien konnten noch nicht vollständig mit dem Video-Dienst synchronisiert werden.');
+                }
             }
             if ($model->announcementImage) {
                 try {
                     $this->storeAnnouncementImage($session, $model->announcementImage);
-                    $this->applyAnnouncementImageToPeerTube($source, $model->announcementImage, $model);
+                    // The public source deliberately retains its fixed waiting
+                    // screen. Event artwork lives on the HumHub announcement.
+                    if (!$isPublic) $this->applyAnnouncementImageToPeerTube($source, $model->announcementImage, $model);
                 } catch (\Throwable $exception) {
                     Yii::error($exception, 'peertube');
                     $this->view->warning('Der Livestream wurde angelegt, aber das Ankündigungsbild konnte nicht vollständig gespeichert werden.');
@@ -101,9 +151,15 @@ class LiveController extends ContentContainerController
             }
             $delay = $scheduledAt ? max(1, strtotime($scheduledAt) - time() - 60) : 1;
             $this->queueReplayCheck($session, $delay);
+            if ($this->replacedMissingSource) {
+                $this->view->error('Deine bisherige wartende Livequelle wurde im Video-Dienst gelöscht. HumHub hat eine neue Quelle angelegt. Bitte verwende für OBS die jetzt angezeigte Server-Adresse und den neuen Streamschlüssel.');
+            }
+            if ($isPublic && PublicLiveService::wasSourceReplaced()) {
+                $this->view->error('Die wartende öffentliche Livequelle wurde im Video-Dienst gelöscht. HumHub hat eine neue Quelle angelegt. Das Redaktionsteam muss in OBS die jetzt angezeigte Server-Adresse und den neuen gemeinsamen Streamschlüssel verwenden.');
+            }
             return $this->redirect($this->contentContainer->createUrl('/peertube/live/studio', ['id' => $session->id]));
         }
-        return $this->render('start', ['model' => $model]);
+        return $this->render('start', ['model' => $model, 'publicCategoryOptions' => PublicLiveCategory::options(), 'canStartPublicLive' => AccessPolicy::canStartPublicLive()]);
     }
 
     public function actionStudio(int $id)
@@ -120,7 +176,7 @@ class LiveController extends ContentContainerController
     public function actionEdit(int $id)
     {
         $session = $this->ownedSession($id);
-        if (!in_array($session->status, ['scheduled', 'preparing'], true)) {
+        if (!in_array($session->status, ['scheduled', 'preparing'], true) && !(bool) $session->is_public) {
             $this->view->warning('Dieser Livestream hat bereits begonnen und kann nicht mehr als Ankündigung bearbeitet werden. Die fertige Aufzeichnung kannst du anschließend wie ein normales Video bearbeiten.');
             return $this->redirect($this->contentContainer->createUrl('/peertube/live/view', ['id' => $session->id]));
         }
@@ -129,6 +185,10 @@ class LiveController extends ContentContainerController
         $model->title = $session->title;
         $model->description = $session->description;
         $model->schedule = $session->status === 'scheduled';
+        $model->publicEvent = (bool) $session->is_public;
+        $model->publicCategories = $session->is_public
+            ? Yii::$app->db->createCommand('SELECT category_id FROM {{%peertube_public_live_session_category}} WHERE session_id = :session', [':session' => $session->id])->queryColumn()
+            : [];
         $model->scheduledAt = $session->start_datetime
             ? date('Y-m-d\\TH:i', strtotime((string)$session->start_datetime))
             : null;
@@ -150,6 +210,14 @@ class LiveController extends ContentContainerController
                     }
                     $scheduledEnd = date('Y-m-d H:i:s', strtotime($scheduledAt) + ((int)$model->durationMinutes * 60));
                     $status = 'scheduled';
+                    if ($session->is_public) {
+                        try {
+                            PublicLiveService::assertNoScheduleConflict($scheduledAt, $scheduledEnd, (int) $session->id);
+                        } catch (\Throwable $exception) {
+                            $model->addError('scheduledAt', $exception->getMessage());
+                            return $this->render('edit', ['model' => $model, 'session' => $session, 'publicCategoryOptions' => PublicLiveCategory::options()]);
+                        }
+                    }
                 }
 
                 try {
@@ -157,17 +225,19 @@ class LiveController extends ContentContainerController
                     if (!$source) {
                         throw new \RuntimeException('Die Livestream-Quelle wurde nicht gefunden.');
                     }
-                    (new PeerTubeClient())->update(
-                        (string)$source->peertube_uuid,
-                        (string)$model->title,
-                        (string)$model->description,
-                        $source->getVideoPassword(),
-                        $model->announcementImage ? [
-                            'path' => $model->announcementImage->tempName,
-                            'mimeType' => $model->announcementImage->type,
-                            'name' => $model->announcementImage->name,
-                        ] : null
-                    );
+                    if (!$session->is_public) {
+                        (new PeerTubeClient())->update(
+                            (string)$source->peertube_uuid,
+                            (string)$model->title,
+                            (string)$model->description,
+                            $source->getVideoPassword(),
+                            $model->announcementImage ? [
+                                'path' => $model->announcementImage->tempName,
+                                'mimeType' => $model->announcementImage->type,
+                                'name' => $model->announcementImage->name,
+                            ] : null
+                        );
+                    }
 
                     $session->setAttributes([
                         'title' => $model->title,
@@ -179,6 +249,9 @@ class LiveController extends ContentContainerController
                     ]);
                     if (!$session->save()) {
                         throw new \RuntimeException('Die geänderte Livestream-Ankündigung konnte nicht gespeichert werden.');
+                    }
+                    if ($session->is_public) {
+                        PublicLiveService::setCategories($session, (array) $model->publicCategories, (string) $model->newPublicCategories);
                     }
                     if ($model->announcementImage) {
                         $this->replaceAnnouncementImage($session, $model->announcementImage);
@@ -194,7 +267,7 @@ class LiveController extends ContentContainerController
             }
         }
 
-        return $this->render('edit', ['model' => $model, 'session' => $session]);
+        return $this->render('edit', ['model' => $model, 'session' => $session, 'publicCategoryOptions' => PublicLiveCategory::options()]);
     }
 
     public function actionStatus(int $id): array
@@ -214,7 +287,7 @@ class LiveController extends ContentContainerController
     {
         $session = $this->ownedSession($id);
         $this->queueReplayCheck($session, 1);
-        $this->view->info('Der Live-Status wird automatisch mit PeerTube abgeglichen.');
+        $this->view->info('Der Live-Status wird automatisch mit dem Video-Dienst abgeglichen.');
         return $this->redirect($this->contentContainer->createUrl('/peertube/live/studio', ['id' => $session->id]));
     }
 
@@ -225,7 +298,7 @@ class LiveController extends ContentContainerController
             $session->updateAttributes(['status' => 'ending', 'updated_at' => date('Y-m-d H:i:s')]);
             $this->queueReplayCheck($session, 15);
         }
-        $this->view->info('Der Status wird geprüft. Beende die Übertragung bitte in OBS; PeerTube verarbeitet danach die Aufzeichnung.');
+        $this->view->info('Der Status wird geprüft. Beende die Übertragung bitte in OBS; der Video-Dienst verarbeitet danach die Aufzeichnung.');
         return $this->redirect($this->contentContainer->createUrl('/peertube/live/view', ['id' => $session->id]));
     }
 
@@ -234,7 +307,7 @@ class LiveController extends ContentContainerController
         $this->assertAvailable();
         $session = LiveSession::findOne($id);
         if ($session && $session->media_id) {
-            $media = \selfsein\peertube\models\Media::findOne((int)$session->media_id);
+            $media = \community\videolibrary\models\Media::findOne((int)$session->media_id);
             if ($media) return $this->redirect($media->getUrl());
         }
         if (!$session || !$this->belongsToCurrentContainer($session) || !$session->canBeViewedBy()) throw new NotFoundHttpException();
@@ -250,7 +323,7 @@ class LiveController extends ContentContainerController
         Yii::$app->response->headers->set('Cache-Control', 'no-store');
         $session = LiveSession::findOne($id);
         if (!$session || !$this->belongsToCurrentContainer($session) || !$session->canBeViewedBy()) throw new ForbiddenHttpException('Du darfst diesen Livestream nicht ansehen.');
-        return ['password' => $session->source->getVideoPassword()];
+        return ['password' => $session->is_public ? '' : $session->source->getVideoPassword()];
     }
 
     private function sourceForCurrentUser(LiveForm $form): LiveSource
@@ -263,11 +336,12 @@ class LiveController extends ContentContainerController
                 $client->tryUseSmallLiveLatency((string)$source->peertube_uuid);
                 return $source;
             } catch (\Throwable $exception) {
-                if (!\selfsein\peertube\components\LiveError::isPeerTubeNotFound($exception)) {
+                if (!\community\videolibrary\components\LiveError::isPeerTubeNotFound($exception)) {
                     throw $exception;
                 }
                 // A removed PeerTube video leaves behind a locally encrypted but
                 // unusable RTMP key. Replace it; never try to revive the old key.
+                $this->replacedMissingSource = true;
                 Yii::warning(['message' => 'PeerTube-Livequelle nicht gefunden; erstelle Ersatzquelle.', 'userId' => (int)Yii::$app->user->id], 'peertube');
             }
         }
@@ -363,7 +437,8 @@ class LiveController extends ContentContainerController
         $this->assertAvailable();
         $session = LiveSession::findOne($id);
         $user = Yii::$app->user->identity;
-        if (!$session || !$this->belongsToCurrentContainer($session) || ((int)$session->user_id !== (int)Yii::$app->user->id && !$user->isSystemAdmin())) {
+        $publicTeamAccess = $session && $session->is_public && AccessPolicy::canStartPublicLive($user);
+        if (!$session || !$this->belongsToCurrentContainer($session) || ((int)$session->user_id !== (int)Yii::$app->user->id && !$user->isSystemAdmin() && !$publicTeamAccess)) {
             throw new ForbiddenHttpException('Du darfst diesen Livestream nicht verwalten.');
         }
         return $session;

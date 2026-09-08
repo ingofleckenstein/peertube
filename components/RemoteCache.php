@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\components;
+namespace community\videolibrary\components;
 
 use RuntimeException;
 use Yii;

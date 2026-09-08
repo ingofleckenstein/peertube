@@ -1,6 +1,6 @@
 <?php
 
-use selfsein\peertube\models\Media;
+use community\videolibrary\models\Media;
 use yii\db\Migration;
 use yii\db\Query;
 

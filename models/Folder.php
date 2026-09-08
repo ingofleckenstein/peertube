@@ -1,5 +1,5 @@
 <?php
-namespace selfsein\peertube\models;
+namespace community\videolibrary\models;
 use yii\db\ActiveRecord;
 class Folder extends ActiveRecord
 {

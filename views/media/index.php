@@ -1,10 +1,10 @@
 <?php
 
 use yii\helpers\Html;
-use selfsein\peertube\widgets\Player;
-use selfsein\peertube\permissions\ManageMedia;
+use community\videolibrary\widgets\Player;
+use community\videolibrary\permissions\ManageMedia;
 use yii\widgets\LinkPager;
-use selfsein\peertube\components\AccessPolicy;
+use community\videolibrary\components\AccessPolicy;
 use humhub\modules\space\models\Space;
 
 $canUpload = AccessPolicy::canUpload($this->context->contentContainer);
@@ -34,7 +34,7 @@ foreach ($folders as $folder) if ((string)$folder->id === (string)$folderId) $ac
             <div class="alert alert-warning">
                 <i class="fa fa-exclamation-triangle"></i>
                 <?php if ($canManageGlobally): ?>
-                    <?= (int) $invalidMediaCount ?> Medieneintrag<?= (int) $invalidMediaCount === 1 ? '' : 'e' ?> konnte<?= (int) $invalidMediaCount === 1 ? '' : 'n' ?> wegen einer unvollständigen HumHub-Verknüpfung nicht angezeigt werden. Details stehen im Administrationsprotokoll unter der Kategorie „peertube“.
+                    <?= (int) $invalidMediaCount ?> Medieneintrag<?= (int) $invalidMediaCount === 1 ? '' : 'e' ?> konnte<?= (int) $invalidMediaCount === 1 ? '' : 'n' ?> wegen einer unvollständigen HumHub-Verknüpfung nicht angezeigt werden. Details stehen im Administrationsprotokoll.
                 <?php else: ?>
                     Einzelne Medien sind momentan nicht verfügbar. Die Administration kann die Ursache im Systemprotokoll prüfen.
                 <?php endif; ?>
@@ -56,7 +56,7 @@ foreach ($folders as $folder) if ((string)$folder->id === (string)$folderId) $ac
             <?php foreach($folders as $folder): if(!$canManageFolders && (!$currentUser || (int)$folder->created_by!==(int)$currentUser->id)) continue; $safeIcon=$folder->getSafeIcon(); ?><section class="pt-admin-row">
                 <strong><i class="fa fa-<?= Html::encode($safeIcon) ?>"></i> <?= Html::encode($folder->name) ?></strong>
                 <div class="pt-admin-grid"><div><label for="pt-folder-name-<?= (int)$folder->id ?>">Name</label><?= Html::textInput('folders['.$folder->id.'][name]',$folder->name,['id'=>'pt-folder-name-'.$folder->id,'class'=>'form-control','required'=>true,'maxlength'=>120]) ?></div><div><label for="pt-folder-visibility-<?= (int)$folder->id ?>">Sichtbarkeit</label><?= Html::dropDownList('folders['.$folder->id.'][visibility]',$folder->visibility,['members'=>'Nur Raummitglieder','public'=>'Alle Community-Mitglieder'],['id'=>'pt-folder-visibility-'.$folder->id,'class'=>'form-control']) ?></div></div>
-                <div class="pt-icon-picker"><button type="button" class="btn btn-default btn-sm pt-icon-trigger"><i class="fa fa-<?= Html::encode($safeIcon) ?>"></i> Ordnersymbol wählen</button><div class="pt-icon-picker-panel"><?php foreach(\selfsein\peertube\models\Folder::iconOptions() as $icon=>$iconLabel): ?><label class="pt-icon-option" title="<?= Html::encode($iconLabel) ?>"><input type="radio" name="folders[<?= (int)$folder->id ?>][icon]" value="<?= Html::encode($icon) ?>"<?= $safeIcon===$icon?' checked':'' ?>><span><i class="fa fa-<?= Html::encode($icon) ?>"></i></span></label><?php endforeach; ?></div></div>
+                <div class="pt-icon-picker"><button type="button" class="btn btn-default btn-sm pt-icon-trigger"><i class="fa fa-<?= Html::encode($safeIcon) ?>"></i> Ordnersymbol wählen</button><div class="pt-icon-picker-panel"><?php foreach(\community\videolibrary\models\Folder::iconOptions() as $icon=>$iconLabel): ?><label class="pt-icon-option" title="<?= Html::encode($iconLabel) ?>"><input type="radio" name="folders[<?= (int)$folder->id ?>][icon]" value="<?= Html::encode($icon) ?>"<?= $safeIcon===$icon?' checked':'' ?>><span><i class="fa fa-<?= Html::encode($icon) ?>"></i></span></label><?php endforeach; ?></div></div>
                 <div class="pt-danger-zone"><strong>Gefahrenzone</strong><div class="text-muted">Der Ordner wird entfernt. Seine Videos bleiben erhalten und erscheinen danach unter „Videos ohne Ordner“.</div><?= Html::a('<i class="fa fa-trash"></i> Ordner löschen',$this->context->contentContainer->createUrl('/peertube/media/delete-folder',['id'=>$folder->id]),['class'=>'btn btn-danger btn-sm','data-method'=>'post','data-confirm'=>'Ordner „'.$folder->name.'“ wirklich löschen? Die enthaltenen Videos bleiben erhalten.']) ?></div>
             </section><?php endforeach; ?>
             <div class="pt-admin-actions"><?= Html::submitButton('<i class="fa fa-check"></i> Änderungen speichern',['class'=>'btn btn-primary']) ?></div><?= Html::endForm() ?>

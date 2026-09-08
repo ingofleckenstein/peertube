@@ -1,7 +1,7 @@
 <?php
-namespace selfsein\peertube\models;
+namespace community\videolibrary\models;
 use humhub\components\ActiveRecord;
-use selfsein\peertube\components\VideoPasswordVault;
+use community\videolibrary\components\VideoPasswordVault;
 class LiveSource extends ActiveRecord
 {
     public static function tableName(): string { return '{{%peertube_live_source}}'; }

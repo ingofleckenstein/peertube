@@ -1,10 +1,10 @@
 <?php
 
-namespace selfsein\peertube\jobs;
+namespace community\videolibrary\jobs;
 
 use humhub\modules\queue\ActiveJob;
-use selfsein\peertube\components\PeerTubeClient;
-use selfsein\peertube\models\Media;
+use community\videolibrary\components\PeerTubeClient;
+use community\videolibrary\models\Media;
 use Yii;
 
 class SyncEmbedDomainsJob extends ActiveJob

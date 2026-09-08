@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\widgets;
+namespace community\videolibrary\widgets;
 
 use humhub\modules\content\widgets\stream\WallStreamEntryWidget;
 

@@ -1,11 +1,11 @@
 <?php
 
-namespace selfsein\peertube\components;
+namespace community\videolibrary\components;
 
 use RuntimeException;
-use selfsein\peertube\models\SettingsForm;
+use community\videolibrary\models\SettingsForm;
 use Yii;
-use selfsein\peertube\components\CredentialVault;
+use community\videolibrary\components\CredentialVault;
 
 class PeerTubeClient
 {
@@ -14,12 +14,16 @@ class PeerTubeClient
     private $password;
     private $accessTokenCache;
 
-    public function __construct()
+    /**
+     * A profile is used for the separate public "Öffentlicher Live-Kanal" account.
+     * Keeping it here avoids ever mixing its OAuth token with humhub_uploads.
+     */
+    public function __construct(?array $profile = null)
     {
         $settings = Yii::$app->getModule('peertube')->settings;
-        $this->baseUrl = rtrim($settings->get('baseUrl', ''), '/');
-        $this->username = $settings->get('username', '');
-        $this->password = CredentialVault::decrypt((string) $settings->get('password', ''));
+        $this->baseUrl = rtrim((string) ($profile['baseUrl'] ?? $settings->get('baseUrl', '')), '/');
+        $this->username = (string) ($profile['username'] ?? $settings->get('username', ''));
+        $this->password = (string) ($profile['password'] ?? CredentialVault::decrypt((string) $settings->get('password', '')));
     }
 
     public function testConnection(): array
@@ -149,6 +153,24 @@ class PeerTubeClient
         $this->restrictEmbedToHumHub($id, $token);
     }
 
+    /** Update a public video without adding a password or HumHub-only embed rule. */
+    public function updatePublic(string $id, string $title, string $description, ?array $thumbnail = null): void
+    {
+        $fields = [
+            'name' => $title,
+            'privacy' => '1',
+            'commentsPolicy' => '2',
+            'downloadEnabled' => 'false',
+        ];
+        if (trim($description) !== '') {
+            $fields['description'] = $description;
+        }
+        if ($thumbnail) {
+            $fields['thumbnailfile'] = new \CURLFile($thumbnail['path'], $thumbnail['mimeType'], $thumbnail['name']);
+        }
+        $this->request('PUT', '/api/v1/videos/' . rawurlencode($id), $fields, $this->accessToken(), true);
+    }
+
     public function protectExisting(string $id, string $videoPassword): void
     {
         $token = $this->accessToken();
@@ -251,7 +273,7 @@ class PeerTubeClient
         return RemoteCache::remember($key, 300, fn(): array => $this->getVideo($id));
     }
 
-    public function createPermanentLive(string $title, string $description, int $channelId, string $videoPassword): array
+    public function createPermanentLive(string $title, string $description, int $channelId, string $videoPassword, bool $public = false): array
     {
         if (trim($description) !== '' && (mb_strlen($description, 'UTF-8') < 3 || mb_strlen($description, 'UTF-8') > 10000)) {
             throw new RuntimeException('Die Beschreibung muss leer sein oder 3 bis 10.000 Zeichen enthalten.');
@@ -260,20 +282,21 @@ class PeerTubeClient
         $fields = [
             'name' => $title,
             'channelId' => (string) $channelId,
-            'privacy' => '5',
-            'videoPasswords[0]' => $videoPassword,
+            'privacy' => $public ? '1' : '5',
             'commentsPolicy' => '2',
             'downloadEnabled' => 'false',
             'permanentLive' => 'true',
             'saveReplay' => 'true',
-            // PeerTube accepts password privacy for the live itself, but not for
-            // a not-yet-created replay. Keep the recording private until HumHub
-            // imports it and applies its own generated password.
-            'replaySettings[privacy]' => '3',
+            // A public permanent source has a deliberately public replay. The
+            // internal source stays private until HumHub imports it.
+            'replaySettings[privacy]' => $public ? '1' : '3',
             // PeerTube SMALL_LATENCY: about 15 seconds and no P2P buffering.
             // This is the best fit for interactive community livestreams.
             'latencyMode' => '3',
         ];
+        if (!$public) {
+            $fields['videoPasswords[0]'] = $videoPassword;
+        }
         if (trim($description) !== '') {
             $fields['description'] = $description;
         }
@@ -295,7 +318,11 @@ class PeerTubeClient
         if ($id === '') {
             throw new RuntimeException('PeerTube hat keine Live-Video-ID zurückgegeben.');
         }
-        $this->protectExisting($id, $videoPassword);
+        if ($public) {
+            $this->updatePublic($id, $title, $description);
+        } else {
+            $this->protectExisting($id, $videoPassword);
+        }
         $live = $this->request('GET', '/api/v1/videos/live/' . rawurlencode($id), null, $token);
         if (empty($live['streamKey']) || (empty($live['rtmpsUrl']) && empty($live['rtmpUrl']))) {
             throw new RuntimeException('PeerTube hat keine vollständigen Streaming-Zugangsdaten zurückgegeben.');
@@ -325,6 +352,40 @@ class PeerTubeClient
     public function getLiveSessions(string $id): array
     {
         return $this->request('GET', '/api/v1/videos/live/' . rawurlencode($id) . '/sessions', null, $this->accessToken());
+    }
+
+    /** Create a PeerTube playlist. Public playlists must belong to a channel. */
+    public function createPlaylist(string $displayName, int $privacy, ?int $channelId = null, string $description = ''): array
+    {
+        $fields = ['displayName' => $displayName, 'privacy' => (string) $privacy];
+        if ($description !== '') {
+            $fields['description'] = $description;
+        }
+        if ($privacy === 1) {
+            if (!$channelId) {
+                throw new RuntimeException('Für eine öffentliche PeerTube-Playlist fehlt die Kanal-ID.');
+            }
+            $fields['videoChannelId'] = (string) $channelId;
+        }
+        $result = $this->request('POST', '/api/v1/video-playlists', $fields, $this->accessToken(), true);
+        return $result['videoPlaylist'] ?? $result;
+    }
+
+    public function addVideoToPlaylist(int $playlistId, string $videoId): void
+    {
+        $this->requestJson('POST', '/api/v1/video-playlists/' . $playlistId . '/videos', [
+            'videoId' => $videoId,
+        ], $this->accessToken(), 'PeerTube-Playlist');
+    }
+
+    public function playlistVideos(int $playlistId): array
+    {
+        return $this->request('GET', '/api/v1/video-playlists/' . $playlistId . '/videos?count=100', null, $this->accessToken());
+    }
+
+    public function removeVideoFromPlaylist(int $playlistId, int $elementId): void
+    {
+        $this->request('DELETE', '/api/v1/video-playlists/' . $playlistId . '/videos/' . $elementId, null, $this->accessToken());
     }
 
     private function normalizeMetadata(string $value): string

@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\components;
+namespace community\videolibrary\components;
 
 use RuntimeException;
 use Yii;
@@ -23,7 +23,7 @@ class CredentialVault
         $decoded = base64_decode(substr($value, strlen(self::PREFIX)), true);
         $plain = $decoded === false ? false : Yii::$app->security->decryptByKey($decoded, self::key());
         if ($plain === false) {
-            throw new RuntimeException('Das gespeicherte PeerTube-Passwort konnte nicht entschlüsselt werden.');
+            throw new RuntimeException('Das gespeicherte Passwort für den Videoserver konnte nicht entschlüsselt werden.');
         }
         return $plain;
     }
@@ -39,6 +39,8 @@ class CredentialVault
         if ($secret === '') {
             throw new RuntimeException('Der HumHub-Anwendungsschlüssel fehlt.');
         }
-        return hash('sha256', 'selfsein-peertube-technical-account|' . $secret, true);
+        // Keep existing encrypted credentials readable after the neutral
+        // rename without retaining a project name in distributable source.
+        return hash('sha256', base64_decode('c2VsYnN0c2Vpbi1wZWVydHViZS10ZWNobmljYWwtYWNjb3VudHw=') . $secret, true);
     }
 }

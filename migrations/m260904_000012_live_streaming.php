@@ -43,7 +43,7 @@ class m260904_000012_live_streaming extends Migration
 
     public function safeDown()
     {
-        $this->delete('{{%content}}', ['object_model' => 'selfsein\\peertube\\models\\LiveSession']);
+        $this->delete('{{%content}}', ['object_model' => 'community\\videolibrary\\models\\LiveSession']);
         $this->dropTable('{{%peertube_live_session}}');
         $this->dropTable('{{%peertube_live_source}}');
     }

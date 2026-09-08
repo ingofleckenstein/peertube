@@ -1,5 +1,5 @@
 <?php
-namespace selfsein\peertube\permissions;
+namespace community\videolibrary\permissions;
 use humhub\libs\BasePermission;
 use humhub\modules\space\models\Space;
 class StartLive extends BasePermission

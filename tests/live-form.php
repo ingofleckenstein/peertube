@@ -7,7 +7,7 @@ new \yii\console\Application(['id'=>'peertube-form-test','basePath'=>__DIR__,'ve
 require dirname(__DIR__).'/models/LiveForm.php';
 $count=0;
 foreach ([''=>true,'  '=>true,'d'=>false,'ab'=>false,'abc'=>true,'ÄÖÜ'=>true,str_repeat('x',10000)=>true,str_repeat('x',10001)=>false] as $value=>$valid) {
- $form=new \selfsein\peertube\models\LiveForm();$form->description=$value;
+ $form=new \community\videolibrary\models\LiveForm();$form->description=$value;
  if ($form->validate(['description']) !== $valid) throw new \RuntimeException('Unexpected description validation');
  ++$count;
 }

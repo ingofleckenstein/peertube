@@ -1,11 +1,11 @@
 <?php
 
-namespace selfsein\peertube\integration\calendar;
+namespace community\videolibrary\integration\calendar;
 
 use DateTime;
 use humhub\modules\calendar\interfaces\CalendarEventIF;
 use humhub\modules\content\components\ActiveQueryContent;
-use selfsein\peertube\models\LiveSession;
+use community\videolibrary\models\LiveSession;
 use Yii;
 
 class LiveCalendarEvent extends LiveSession implements CalendarEventIF

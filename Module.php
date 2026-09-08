@@ -1,17 +1,18 @@
 <?php
 
-namespace selfsein\peertube;
+namespace community\videolibrary;
 
 use humhub\modules\content\components\ContentContainerModule;
 use humhub\modules\space\models\Space;
 use humhub\modules\user\models\User;
-use selfsein\peertube\models\Media;
-use selfsein\peertube\models\LiveSession;
-use selfsein\peertube\permissions\StartLive;
-use selfsein\peertube\permissions\UseLiveStreaming;
-use selfsein\peertube\permissions\ManageMedia;
-use selfsein\peertube\permissions\UploadMedia;
-use selfsein\peertube\permissions\UsePeerTube;
+use community\videolibrary\models\Media;
+use community\videolibrary\models\LiveSession;
+use community\videolibrary\permissions\StartLive;
+use community\videolibrary\permissions\UseLiveStreaming;
+use community\videolibrary\permissions\ManageMedia;
+use community\videolibrary\permissions\UploadMedia;
+use community\videolibrary\permissions\UsePeerTube;
+use community\videolibrary\permissions\UsePublicLiveStreaming;
 use yii\helpers\Url;
 use Yii;
 
@@ -55,7 +56,7 @@ class Module extends ContentContainerModule
 
     protected function getGlobalPermissions()
     {
-        return [new UsePeerTube(), new UseLiveStreaming()];
+        return [new UsePeerTube(), new UseLiveStreaming(), new UsePublicLiveStreaming()];
     }
 
     /**

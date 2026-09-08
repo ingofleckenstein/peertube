@@ -1,11 +1,11 @@
 <?php
-namespace selfsein\peertube\models;
+namespace community\videolibrary\models;
 use humhub\modules\content\components\ContentActiveRecord;
 use humhub\modules\content\models\Content;
 use humhub\modules\user\helpers\UserHelper;
 use humhub\modules\user\models\User;
-use selfsein\peertube\widgets\LiveWallEntry;
-use selfsein\peertube\permissions\StartLive;
+use community\videolibrary\widgets\LiveWallEntry;
+use community\videolibrary\permissions\StartLive;
 use yii\helpers\Url;
 class LiveSession extends ContentActiveRecord
 {
@@ -15,7 +15,7 @@ class LiveSession extends ContentActiveRecord
     protected $canMove = false;
     protected $createPermission = StartLive::class;
     public static function tableName(): string { return '{{%peertube_live_session}}'; }
-    public function rules(): array { return [[['source_id','user_id','space_id','media_id','poll_generation'],'integer'],[['source_id','user_id','peertube_uuid','title','status'],'required'],[['description','last_error'],'string'],[['peertube_uuid','replay_uuid'],'string','max'=>64],[['title'],'string','max'=>120],[['status'],'in','range'=>['scheduled','preparing','live','ending','completed','failed','cancelled']],[['created_at','updated_at','started_at','ended_at','start_datetime','end_datetime'],'safe']]; }
+    public function rules(): array { return [[['source_id','user_id','space_id','media_id','poll_generation'],'integer'],[['source_id','user_id','peertube_uuid','title','status'],'required'],[['description','last_error','public_categories'],'string'],[['peertube_uuid','replay_uuid'],'string','max'=>64],[['title'],'string','max'=>120],[['is_public'],'boolean'],[['status'],'in','range'=>['scheduled','preparing','live','ending','completed','failed','cancelled']],[['created_at','updated_at','started_at','ended_at','start_datetime','end_datetime'],'safe']]; }
     public function getContentName(){ return 'Livestream'; }
     public function getContentDescription(){ return trim($this->title."\n".(string)$this->description); }
     public function getIcon(){ return 'fa-rss'; }

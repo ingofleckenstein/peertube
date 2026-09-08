@@ -43,17 +43,17 @@ Prüfung: `php tests/run.php` führt isolierte Regressionstests ohne echte Zugan
 
 ## Voraussetzungen und Einrichtung für andere Communities
 
-Das Modul entstand für Selbstsein, ist aber technisch konfigurierbar und nicht auf bestimmte Benutzerkonten beschränkt. Folgende installationsbezogene Vorgaben müssen bei einer Übernahme geprüft werden:
+Das Modul entstand für Community, ist aber technisch konfigurierbar und nicht auf bestimmte Benutzerkonten beschränkt. Folgende installationsbezogene Vorgaben müssen bei einer Übernahme geprüft werden:
 
-- In der Modulkonfiguration die vorbelegte PeerTube-URL `https://video.selbstsein.events` durch die eigene HTTPS-URL ersetzen und einen eigenen technischen PeerTube-Benutzer mit Kennwort sowie dessen Kanal-ID hinterlegen.
-- Die voreingestellten Embed-Domains `sexpositiv.community` und `community.selbstsein.events` durch die eigenen HumHub-Domains ersetzen. Diese Vorgaben sind konfigurierbar.
+- In der Modulkonfiguration die vorbelegte PeerTube-URL `https://video.community.events` durch die eigene HTTPS-URL ersetzen und einen eigenen technischen PeerTube-Benutzer mit Kennwort sowie dessen Kanal-ID hinterlegen.
+- Die voreingestellten Embed-Domains `community.example.org` und `community.example.org` durch die eigenen HumHub-Domains ersetzen. Diese Vorgaben sind konfigurierbar.
 - Für Direktuploads einen eigenen zufälligen gemeinsamen Schlüssel mit mindestens 32 Zeichen in beiden Komponenten speichern; im PeerTube-Plugin ausschließlich die eigenen erlaubten HTTPS-Ursprünge konfigurieren.
 - HumHubs Queue-Verarbeitung und Cronjobs betreiben: Sammelaktionen, Live-Überwachung und die automatische Übernahme von Aufzeichnungen benötigen Hintergrundverarbeitung.
 - Rechte für Nutzung, Uploads, Verwaltung und Livestreams in der eigenen Community festlegen. Inhaltswarnungen können angepasst werden; die Oberfläche ist deutsch.
 
 Zugangsdaten gehören ausschließlich in die Administrationskonfiguration. Das Modul speichert die technischen Zugangsdaten verschlüsselt; der HumHub-Anwendungsschlüssel muss bei Sicherung und Wiederherstellung erhalten bleiben. PHP benötigt unter anderem cURL und OpenSSL für API-Zugriffe und Verschlüsselung. Eine genaue laufende PHP-/Datenbankversion wurde für diese Dokumentation nicht festgestellt.
 
-**Einschätzung:** Für andere Communities grundsätzlich verwendbar, aber mit Einrichtung und Abnahme auf deren eigener Installation. Der Namespace `selfsein\peertube` ist eine technische Herkunftsbezeichnung. Eine `LICENSE`-Datei und eine Lizenzangabe in `module.json` fehlen derzeit; eine allgemeine Freigabe zur Weitergabe oder Änderung ist damit im Repository nicht dokumentiert. Dies sollte vor einer öffentlichen Veröffentlichung geklärt werden. Die GitHub-Repositories sind derzeit privat; andere Personen benötigen Zugriff.
+**Einschätzung:** Für andere Communities grundsätzlich verwendbar, aber mit Einrichtung und Abnahme auf deren eigener Installation. Der Namespace `community\videolibrary` ist eine technische Herkunftsbezeichnung. Eine `LICENSE`-Datei und eine Lizenzangabe in `module.json` fehlen derzeit; eine allgemeine Freigabe zur Weitergabe oder Änderung ist damit im Repository nicht dokumentiert. Dies sollte vor einer öffentlichen Veröffentlichung geklärt werden. Die GitHub-Repositories sind derzeit privat; andere Personen benötigen Zugriff.
 
 ## Vorhandene Funktions- und Versionsnotizen
 

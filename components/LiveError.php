@@ -1,5 +1,5 @@
 <?php
-namespace selfsein\peertube\components;
+namespace community\videolibrary\components;
 
 class LiveError
 {
@@ -24,15 +24,15 @@ class LiveError
     {
         $code = self::code($error);
         $message = match ($code) {
-            'PT-LIVE-403-USER-LIMIT' => 'Das Livestream-Limit des technischen PeerTube-Kontos ist erreicht. Die Administration muss die vorhandenen Livequellen auf PeerTube prüfen und bei Bedarf das Limit anpassen. Erneutes Laden oder Cache-Leeren behebt dieses Limit nicht.',
-            'PT-LIVE-403-INSTANCE-LIMIT' => 'Das Livestream-Limit des PeerTube-Servers ist erreicht. Bitte informiere die Administration.',
-            'PT-LIVE-HTTP-401' => 'PeerTube lehnt die Anmeldung ab. Bitte lasse die Zugangsdaten des technischen Kontos prüfen.',
-            'PT-LIVE-HTTP-403' => 'PeerTube verweigert die Aktion. Bitte lasse die Berechtigungen und Livestream-Einstellungen prüfen.',
-            'PT-LIVE-HTTP-400' => 'PeerTube hat die übermittelten Angaben abgelehnt. Bitte informiere die Administration.',
-            'PT-LIVE-HTTP-429' => 'PeerTube erhält zu viele Anfragen. Bitte versuche es später erneut.',
+            'PT-LIVE-403-USER-LIMIT' => 'Das Livestream-Limit des technischen Videokontos ist erreicht. Die Administration muss die vorhandenen Livequellen im Video-Dienst prüfen und bei Bedarf das Limit anpassen. Erneutes Laden oder Cache-Leeren behebt dieses Limit nicht.',
+            'PT-LIVE-403-INSTANCE-LIMIT' => 'Das Livestream-Limit des Videoservers ist erreicht. Bitte informiere die Administration.',
+            'PT-LIVE-HTTP-401' => 'Der Video-Dienst lehnt die Anmeldung ab. Bitte lasse die Zugangsdaten des technischen Kontos prüfen.',
+            'PT-LIVE-HTTP-403' => 'Der Video-Dienst verweigert die Aktion. Bitte lasse die Berechtigungen und Livestream-Einstellungen prüfen.',
+            'PT-LIVE-HTTP-400' => 'Der Video-Dienst hat die übermittelten Angaben abgelehnt. Bitte informiere die Administration.',
+            'PT-LIVE-HTTP-429' => 'Der Video-Dienst erhält zu viele Anfragen. Bitte versuche es später erneut.',
             'PT-LIVE-DB' => 'Die Livestream-Daten konnten lokal nicht verarbeitet werden. Bitte informiere die Administration.',
             default => str_starts_with($code, 'PT-LIVE-HTTP-')
-                ? 'Der PeerTube-Server hat die Anfrage mit einem HTTP-Fehler abgelehnt. Bitte informiere die Administration.'
+                ? 'Der Videoserver hat die Anfrage mit einem HTTP-Fehler abgelehnt. Bitte informiere die Administration.'
                 : 'Die Livestream-Quelle konnte nicht vorbereitet werden. Bitte informiere die Administration mit diesem Fehlercode und der Referenz.',
         };
         return '[' . $code . '] ' . $message;

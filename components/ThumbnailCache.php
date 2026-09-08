@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\components;
+namespace community\videolibrary\components;
 
 use RuntimeException;
 
@@ -17,7 +17,7 @@ class ThumbnailCache
             || ($base['port'] ?? 443) !== ($target['port'] ?? 443)
             || isset($target['user']) || isset($target['pass']) || isset($target['query'])
             || !preg_match('~^/(?:lazy-)?static/(?:thumbnails|previews)/[a-zA-Z0-9_.-]+$~D', $target['path'] ?? '')) {
-            throw new RuntimeException('Ungültige PeerTube-Vorschaubildadresse.');
+            throw new RuntimeException('Ungültige Vorschaubildadresse.');
         }
         return RemoteCache::remember('thumbnail|' . $url . '|' . $revision, 86400, static function () use ($url): array {
             $body = '';
@@ -40,7 +40,7 @@ class ThumbnailCache
             curl_close($handle);
             $info = $ok !== false && $status === 200 ? @getimagesizefromstring($body) : false;
             if (!$info || !in_array($info['mime'] ?? '', ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
-                throw new RuntimeException('PeerTube-Vorschaubild konnte nicht geladen werden.');
+                throw new RuntimeException('Vorschaubild konnte nicht geladen werden.');
             }
             return ['body' => $body, 'mime' => $info['mime']];
         });

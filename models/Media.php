@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\models;
+namespace community\videolibrary\models;
 
 use humhub\modules\space\models\Space;
 use humhub\modules\content\components\ContentActiveRecord;
@@ -8,9 +8,9 @@ use humhub\modules\content\models\Content;
 use humhub\modules\topic\models\Topic;
 use humhub\modules\user\models\User;
 use humhub\modules\user\helpers\UserHelper;
-use selfsein\peertube\permissions\UploadMedia;
-use selfsein\peertube\permissions\ManageMedia;
-use selfsein\peertube\widgets\WallEntry;
+use community\videolibrary\permissions\UploadMedia;
+use community\videolibrary\permissions\ManageMedia;
+use community\videolibrary\widgets\WallEntry;
 use Yii;
 use yii\helpers\Url;
 
@@ -97,7 +97,7 @@ class Media extends ContentActiveRecord
     {
         $container = $this->content->container;
         $parameters = [
-            '/peertube/media/view',
+            '/videos/media/view',
             'cguid' => $container->guid,
             'id' => $this->id,
         ];
@@ -137,7 +137,7 @@ class Media extends ContentActiveRecord
     {
         if (Yii::$app->getModule('peertube')->settings->get('deleteRemote', true)) {
             try {
-                (new \selfsein\peertube\components\PeerTubeClient())->delete($this->peertube_uuid);
+                (new \community\videolibrary\components\PeerTubeClient())->delete($this->peertube_uuid);
             } catch (\Throwable $exception) {
                 Yii::error($exception, 'peertube');
                 $this->addError('peertube_uuid', 'PeerTube konnte das Medium nicht löschen. Bitte erneut versuchen.');

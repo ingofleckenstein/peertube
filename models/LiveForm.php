@@ -1,5 +1,5 @@
 <?php
-namespace selfsein\peertube\models;
+namespace community\videolibrary\models;
 use yii\base\Model;
 class LiveForm extends Model
 {
@@ -11,6 +11,9 @@ class LiveForm extends Model
     public $scheduledAt;
     public $durationMinutes = 60;
     public $announcementImage;
+    public $publicEvent = false;
+    public $publicCategories = [];
+    public $newPublicCategories = '';
     public function rules(): array
     {
         return [
@@ -26,8 +29,19 @@ class LiveForm extends Model
                 'message' => 'Bitte wähle den geplanten Beginn.'],
             ['scheduledAt', 'datetime', 'format' => 'php:Y-m-d\\TH:i', 'when' => static fn(self $model) => (bool)$model->schedule],
             ['durationMinutes', 'integer', 'min' => 5, 'max' => 1440],
+            ['publicEvent', 'boolean'],
+            ['publicEvent', 'validatePublicEvent'],
+            ['publicCategories', 'each', 'rule' => ['string', 'max' => 120]],
+            ['newPublicCategories', 'string', 'max' => 500],
             ['announcementImage', 'file', 'extensions' => ['jpg', 'jpeg', 'png', 'webp'], 'checkExtensionByMimeType' => true, 'maxSize' => 10 * 1024 * 1024],
             ['consentConfirmed', 'required', 'requiredValue' => true, 'message' => 'Bitte bestätige die Veröffentlichungsberechtigung.', 'except' => self::SCENARIO_EDIT],
         ];
+    }
+
+    public function validatePublicEvent($attribute): void
+    {
+        if ($this->$attribute && !$this->schedule) {
+            $this->addError($attribute, 'Öffentliche Community-Live-Events können nur geplant werden.');
+        }
     }
 }

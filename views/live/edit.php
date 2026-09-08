@@ -14,6 +14,11 @@ use yii\helpers\Html;
         <div id="pt-live-schedule-fields">
             <?= $form->field($model, 'scheduledAt')->input('datetime-local')->label('Geplanter Beginn') ?>
             <?= $form->field($model, 'durationMinutes')->input('number', ['min' => 5, 'max' => 1440])->label('Voraussichtliche Dauer in Minuten') ?>
+            <?php if ($session->is_public): ?>
+                <div class="alert alert-info">Dieses öffentliche Event nutzt den gemeinsamen Live-Kanal. Sein dauerhaftes Wartebild bleibt unverändert.</div>
+                <?= $form->field($model, 'publicCategories')->checkboxList($publicCategoryOptions ?? [])->label('Kategorien') ?>
+                <?= $form->field($model, 'newPublicCategories')->textInput(['maxlength' => 500])->label('Neue Kategorien')->hint('Mehrere neue Kategorien mit Komma trennen.') ?>
+            <?php endif; ?>
         </div>
         <?= Html::submitButton('<i class="fa fa-check"></i> Änderungen speichern', ['class' => 'btn btn-primary']) ?>
         <?= Html::a('Abbrechen', $this->context->contentContainer->createUrl('/peertube/live/view', ['id' => $session->id]), ['class' => 'btn btn-default']) ?>

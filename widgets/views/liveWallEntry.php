@@ -1,4 +1,4 @@
-<?php use yii\helpers\Html; use selfsein\peertube\widgets\LivePlayer;
+<?php use yii\helpers\Html; use community\videolibrary\widgets\LivePlayer;
 $image=$session->fileManager->find()->andWhere(['like','mime_type','image/%',false])->orderBy(['id'=>SORT_DESC])->one();
 $imageUrl=$image ? $image->getUrl([], false) : null;
 $showPlayer=in_array($session->status,['live','ending'],true);

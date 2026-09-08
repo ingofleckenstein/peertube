@@ -1,14 +1,16 @@
 <?php
 
-namespace selfsein\peertube\jobs;
+namespace community\videolibrary\jobs;
 
 use humhub\modules\queue\ActiveJob;
-use selfsein\peertube\components\AdminAlert;
-use selfsein\peertube\components\LiveError;
-use selfsein\peertube\components\PeerTubeClient;
-use selfsein\peertube\components\VideoPasswordVault;
-use selfsein\peertube\models\LiveSession;
-use selfsein\peertube\models\Media;
+use community\videolibrary\components\AdminAlert;
+use community\videolibrary\components\LiveError;
+use community\videolibrary\components\PeerTubeClient;
+use community\videolibrary\components\PublicLiveService;
+use community\videolibrary\components\UserPlaylistService;
+use community\videolibrary\components\VideoPasswordVault;
+use community\videolibrary\models\LiveSession;
+use community\videolibrary\models\Media;
 use Yii;
 
 class FinalizeLiveReplayJob extends ActiveJob
@@ -28,7 +30,7 @@ class FinalizeLiveReplayJob extends ActiveJob
         if (LiveSession::updateAllCounters(['poll_generation'=>1], ['id'=>$this->sessionId,'poll_generation'=>$this->generation]) !== 1) return;
         $this->generation++;
         try {
-            $client = new PeerTubeClient();
+            $client = $session->is_public ? PublicLiveService::client() : new PeerTubeClient();
             $response = $client->getLiveSessions((string)$session->peertube_uuid);
             $peerTubeSession = $this->findSession($response['data'] ?? [], $session);
             if (!$peerTubeSession) {
@@ -48,10 +50,27 @@ class FinalizeLiveReplayJob extends ActiveJob
             $uuid = (string)($replay['uuid'] ?? '');
             if ($uuid === '') throw new \RuntimeException('PeerTube lieferte keine UUID für die Live-Aufzeichnung.');
             $source = $session->source;
-            $password = $source->getVideoPassword();
-            $client->update($uuid, (string)$session->title, (string)$session->description, $password);
+            $password = $session->is_public ? '' : $source->getVideoPassword();
+            if ($session->is_public) {
+                $client->updatePublic($uuid, (string)$session->title, (string)$session->description);
+            } else {
+                $client->update($uuid, (string)$session->title, (string)$session->description, $password);
+            }
             $video = $client->verifyVideo($uuid, (string)$session->title, (string)$session->description);
             $this->convert($session, $video, $password);
+            try {
+                $session->refresh();
+                if ($session->is_public) {
+                    PublicLiveService::syncReplay($session);
+                } elseif ($session->media_id && ($media = Media::findOne((int) $session->media_id))) {
+                    UserPlaylistService::add($media);
+                }
+            } catch (\Throwable $playlistException) {
+                // The recording is safely finished. A playlist failure must not
+                // cause a second import or make a public replay private again.
+                Yii::error($playlistException, 'peertube');
+                AdminAlert::raise('PeerTube-Playlist konnte nicht synchronisiert werden: Session ' . $session->id, $playlistException);
+            }
         } catch (\Throwable $exception) {
             Yii::error($exception, 'peertube');
             if (LiveError::isPeerTubeNotFound($exception)) {
@@ -71,7 +90,11 @@ class FinalizeLiveReplayJob extends ActiveJob
 
     private function findSession(array $sessions, LiveSession $session): ?array
     {
-        $threshold = strtotime((string)($session->started_at ?: $session->created_at)) - 300;
+        // A scheduled event can be announced weeks beforehand. Its creation
+        // date must not make an old, already finished public event look like
+        // the replay of this later event.
+        $anchor = $session->started_at ?: ($session->start_datetime ?: $session->created_at);
+        $threshold = strtotime((string) $anchor) - 300;
         usort($sessions, static function(array $a, array $b): int {
             return strtotime((string)($b['startDate'] ?? '')) <=> strtotime((string)($a['startDate'] ?? ''));
         });

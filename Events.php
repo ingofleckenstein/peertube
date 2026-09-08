@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube;
+namespace community\videolibrary;
 
 use humhub\modules\space\widgets\Menu;
 use humhub\modules\ui\menu\MenuLink;
@@ -11,7 +11,7 @@ use humhub\modules\file\handler\FileHandlerCollection;
 use humhub\modules\file\handler\UploadVideoFileHandler;
 use humhub\modules\space\models\Space;
 use humhub\modules\user\models\User;
-use selfsein\peertube\components\AccessPolicy;
+use community\videolibrary\components\AccessPolicy;
 use Yii;
 use yii\base\ModelEvent;
 use yii\base\WidgetEvent;

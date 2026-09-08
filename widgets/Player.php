@@ -1,11 +1,11 @@
 <?php
 
-namespace selfsein\peertube\widgets;
+namespace community\videolibrary\widgets;
 
 use humhub\components\Widget;
-use selfsein\peertube\assets\PlayerAsset;
-use selfsein\peertube\models\Media;
-use selfsein\peertube\models\SettingsForm;
+use community\videolibrary\assets\PlayerAsset;
+use community\videolibrary\models\Media;
+use community\videolibrary\models\SettingsForm;
 use Yii;
 
 class Player extends Widget

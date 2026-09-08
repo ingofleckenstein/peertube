@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\assets;
+namespace community\videolibrary\assets;
 
 use yii\web\AssetBundle;
 

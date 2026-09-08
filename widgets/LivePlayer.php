@@ -1,8 +1,8 @@
 <?php
-namespace selfsein\peertube\widgets;
+namespace community\videolibrary\widgets;
 use humhub\components\Widget;
-use selfsein\peertube\assets\PlayerAsset;
-use selfsein\peertube\models\LiveSession;
+use community\videolibrary\assets\PlayerAsset;
+use community\videolibrary\models\LiveSession;
 class LivePlayer extends Widget
 {
     public LiveSession $session;

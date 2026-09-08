@@ -1,15 +1,16 @@
 <?php
 
-namespace selfsein\peertube\components;
+namespace community\videolibrary\components;
 
 use humhub\modules\content\components\ContentContainerActiveRecord;
 use humhub\modules\space\models\Space;
 use humhub\modules\user\models\User;
 use humhub\modules\user\helpers\UserHelper;
-use selfsein\peertube\permissions\UploadMedia;
-use selfsein\peertube\permissions\UsePeerTube;
-use selfsein\peertube\permissions\StartLive;
-use selfsein\peertube\permissions\UseLiveStreaming;
+use community\videolibrary\permissions\UploadMedia;
+use community\videolibrary\permissions\UsePeerTube;
+use community\videolibrary\permissions\StartLive;
+use community\videolibrary\permissions\UseLiveStreaming;
+use community\videolibrary\permissions\UsePublicLiveStreaming;
 
 class AccessPolicy
 {
@@ -61,5 +62,11 @@ class AccessPolicy
         return $container instanceof User
             ? (int) $container->id === (int) $user->id
             : $container->getPermissionManager($user)->can(StartLive::class);
+    }
+
+    public static function canStartPublicLive($user = null): bool
+    {
+        $user = UserHelper::getUserByParam($user);
+        return $user instanceof User && ($user->isSystemAdmin() || $user->canManageAllContent() || $user->can(UsePublicLiveStreaming::class));
     }
 }

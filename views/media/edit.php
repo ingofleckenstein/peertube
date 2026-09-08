@@ -1,7 +1,7 @@
 <?php
 use humhub\widgets\form\ActiveForm;
 use yii\helpers\Html;
-use selfsein\peertube\models\SettingsForm;
+use community\videolibrary\models\SettingsForm;
 use humhub\modules\topic\widgets\TopicPicker;
 $folderOptions = \yii\helpers\ArrayHelper::map($folders, 'id', 'name');
 ?>

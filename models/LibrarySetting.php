@@ -1,5 +1,5 @@
 <?php
-namespace selfsein\peertube\models;
+namespace community\videolibrary\models;
 use Yii;
 use yii\db\ActiveRecord;
 use yii\base\DynamicModel;

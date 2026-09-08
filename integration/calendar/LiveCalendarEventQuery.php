@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\integration\calendar;
+namespace community\videolibrary\integration\calendar;
 
 use humhub\modules\calendar\interfaces\event\AbstractCalendarQuery;
 

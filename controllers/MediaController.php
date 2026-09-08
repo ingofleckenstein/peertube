@@ -1,18 +1,18 @@
 <?php
 
-namespace selfsein\peertube\controllers;
+namespace community\videolibrary\controllers;
 
 use humhub\modules\content\components\ContentContainerController;
-use selfsein\peertube\components\PeerTubeClient;
-use selfsein\peertube\components\VideoPasswordVault;
-use selfsein\peertube\models\Media;
-use selfsein\peertube\models\UploadForm;
-use selfsein\peertube\models\EditForm;
-use selfsein\peertube\models\Folder;
-use selfsein\peertube\models\LibrarySetting;
-use selfsein\peertube\models\PendingOperation;
-use selfsein\peertube\components\AdminAlert;
-use selfsein\peertube\permissions\ManageMedia;
+use community\videolibrary\components\PeerTubeClient;
+use community\videolibrary\components\VideoPasswordVault;
+use community\videolibrary\models\Media;
+use community\videolibrary\models\UploadForm;
+use community\videolibrary\models\EditForm;
+use community\videolibrary\models\Folder;
+use community\videolibrary\models\LibrarySetting;
+use community\videolibrary\models\PendingOperation;
+use community\videolibrary\components\AdminAlert;
+use community\videolibrary\permissions\ManageMedia;
 use humhub\modules\user\models\User;
 use humhub\modules\topic\models\Topic;
 use humhub\modules\content\widgets\stream\StreamEntryOptions;
@@ -25,10 +25,11 @@ use yii\filters\VerbFilter;
 use yii\web\Response;
 use yii\data\Pagination;
 use humhub\modules\space\models\Space;
-use selfsein\peertube\components\AccessPolicy;
-use selfsein\peertube\components\DirectUploadTicket;
-use selfsein\peertube\components\TranscriptService;
-use selfsein\peertube\models\SettingsForm;
+use community\videolibrary\components\AccessPolicy;
+use community\videolibrary\components\DirectUploadTicket;
+use community\videolibrary\components\TranscriptService;
+use community\videolibrary\components\UserPlaylistService;
+use community\videolibrary\models\SettingsForm;
 
 class MediaController extends ContentContainerController
 {
@@ -263,6 +264,12 @@ class MediaController extends ContentContainerController
                         Yii::error($topicException, 'peertube');
                         $this->view->error('Das Medium wurde hochgeladen, aber die HumHub-Themen konnten nicht gespeichert werden. Bitte das Medium bearbeiten und erneut speichern.');
                     }
+                    try {
+                        UserPlaylistService::add($media);
+                    } catch (\Throwable $playlistException) {
+                        Yii::error($playlistException, 'peertube');
+                        $this->view->warning('Das Video wurde hochgeladen, konnte aber noch nicht seiner persönlichen Wiedergabeliste zugeordnet werden. Die Administration wurde informiert.');
+                    }
                     $pending->delete();
                     $this->view->success('Upload abgeschlossen. Das Video wird jetzt verarbeitet.');
                     return $this->redirect($this->contentContainer->createUrl('/peertube/media/index'));
@@ -465,6 +472,12 @@ class MediaController extends ContentContainerController
                 throw new \RuntimeException('Der lokale Medieneintrag konnte nicht gespeichert werden.');
             }
             $media->syncTopics($payload['topics'] ?? []);
+            try {
+                UserPlaylistService::add($media);
+            } catch (\Throwable $playlistException) {
+                Yii::error($playlistException, 'peertube');
+                $this->view->warning('Das Video wurde hochgeladen, konnte aber noch nicht seiner persönlichen Wiedergabeliste zugeordnet werden. Die Administration wurde informiert.');
+            }
             $pending->delete();
             $transaction->commit();
             return ['success' => true, 'redirectUrl' => $this->contentContainer->createUrl('/peertube/media/index')];
@@ -598,7 +611,7 @@ class MediaController extends ContentContainerController
                     }
                 }
                 if ($thumbnailWasChanged && $remoteUpdateStarted) {
-                    $rollbackErrors[] = 'Das vorherige PeerTube-Vorschaubild konnte nicht automatisch wiederhergestellt werden.';
+                    $rollbackErrors[] = 'Das vorherige Vorschaubild konnte nicht automatisch wiederhergestellt werden.';
                 }
                 if ($rollbackErrors) {
                     $rollbackMessage = $safe . ' Rücksetzung fehlgeschlagen: ' . implode(' | ', $rollbackErrors);
@@ -694,7 +707,7 @@ class MediaController extends ContentContainerController
         }
         try {
             $this->hydrateThumbnailUrls([$media]);
-            $image = \selfsein\peertube\components\ThumbnailCache::get(
+            $image = \community\videolibrary\components\ThumbnailCache::get(
                 (string) $media->thumbnail_url,
                 (string) Yii::$app->getModule('peertube')->settings->get('baseUrl', ''),
                 (string) $media->updated_at
@@ -825,7 +838,7 @@ class MediaController extends ContentContainerController
                 $video = $client->getCachedVideo((string) $media->peertube_uuid);
                 $path = (string) ($video['thumbnailPath'] ?? $video['previewPath'] ?? '');
                 if ($path === '' || !str_starts_with($path, '/')) {
-                    throw new \RuntimeException('PeerTube hat keinen gültigen Thumbnail-Pfad geliefert.');
+                    throw new \RuntimeException('Der Videoserver hat keinen gültigen Vorschaubild-Pfad geliefert.');
                 }
                 $media->updateAttributes(['thumbnail_url' => $baseUrl . $path]);
                 $media->thumbnail_url = $baseUrl . $path;

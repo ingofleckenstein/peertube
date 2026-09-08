@@ -1,5 +1,5 @@
 <?php
-namespace selfsein\peertube\permissions;
+namespace community\videolibrary\permissions;
 use humhub\libs\BasePermission;
 class UseLiveStreaming extends BasePermission
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace selfsein\peertube\handler;
+namespace community\videolibrary\handler;
 
 use humhub\modules\content\components\ContentContainerActiveRecord;
 use humhub\modules\file\handler\BaseFileHandler;

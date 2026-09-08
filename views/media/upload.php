@@ -2,9 +2,11 @@
 
 use humhub\widgets\form\ActiveForm;
 use yii\helpers\Html;
-use selfsein\peertube\models\SettingsForm;
+use community\videolibrary\models\SettingsForm;
 use humhub\modules\topic\widgets\TopicPicker;
 $folderOptions = \yii\helpers\ArrayHelper::map($folders, 'id', 'name');
+$videoAddress = rtrim((string) Yii::$app->getModule('peertube')->settings->get('baseUrl', ''), '/');
+$uploadTarget = $videoAddress !== '' ? $videoAddress : 'dem Videoserver';
 
 ?>
 <div class="panel panel-default">
@@ -41,7 +43,7 @@ $folderOptions = \yii\helpers\ArrayHelper::map($folders, 'id', 'name');
             <button type="button" id="direct-upload-abort" class="btn btn-default btn-sm"><i class="fa fa-times"></i> Upload abbrechen</button>
         </div>
         <div id="direct-upload-error" class="alert alert-danger" hidden role="alert"></div>
-        <?= Html::submitButton('<i class="fa fa-upload"></i> In die Community hochladen', ['class' => 'btn btn-primary', 'id' => 'peertube-upload-submit']) ?>
+        <?= Html::submitButton('<i class="fa fa-upload"></i> Auf ' . Html::encode($uploadTarget) . ' hochladen', ['class' => 'btn btn-primary', 'id' => 'peertube-upload-submit']) ?>
         <?= Html::a('Abbrechen', $this->context->contentContainer->createUrl('/peertube/media/index'), ['class' => 'btn btn-light']) ?>
         <?php ActiveForm::end(); ?>
     </div>

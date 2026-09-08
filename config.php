@@ -5,14 +5,19 @@ use humhub\modules\file\models\FileUpload;
 use humhub\modules\file\handler\FileHandlerCollection;
 use humhub\modules\content\widgets\WallCreateContentFormFooter;
 use humhub\modules\user\widgets\ProfileMenu;
-use selfsein\peertube\Events;
+use community\videolibrary\Events;
 use yii\base\Model;
 use yii\base\Widget;
 
 return [
     'id' => 'peertube',
-    'class' => selfsein\peertube\Module::class,
-    'namespace' => 'selfsein\\peertube',
+    'class' => community\videolibrary\Module::class,
+    'namespace' => 'community\\videolibrary',
+    'urlManagerRules' => [
+        'videos/public-events' => 'peertube/public-events/index',
+        'videos/public-events.json' => 'peertube/public-events/json',
+        'videos/<controller:[a-z0-9-]+>/<action:[a-z0-9-]+>' => 'peertube/<controller>/<action>',
+    ],
     'events' => [
         ['class' => Menu::class, 'event' => Menu::EVENT_INIT, 'callback' => [Events::class, 'onSpaceMenuInit']],
         ['class' => ProfileMenu::class, 'event' => ProfileMenu::EVENT_INIT, 'callback' => [Events::class, 'onProfileMenuInit']],

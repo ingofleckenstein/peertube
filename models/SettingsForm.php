@@ -1,17 +1,17 @@
 <?php
 
-namespace selfsein\peertube\models;
+namespace community\videolibrary\models;
 
 use Yii;
 use yii\base\Model;
-use selfsein\peertube\components\CredentialVault;
+use community\videolibrary\components\CredentialVault;
 
 class SettingsForm extends Model
 {
-    public const DEFAULT_EMBED_DOMAINS = "sexpositiv.community\ncommunity.selbstsein.events";
+    public const DEFAULT_EMBED_DOMAINS = 'community.example.org';
     public const DEFAULT_WARNING_CATEGORIES = "sexuality_nudity|Sexualität und Nacktheit\nsexual_violence|Sexualisierte Gewalt und Übergriffe\nviolence|Gewalt und körperliche Übergriffe\nmental_health|Psychische Krisen und belastende Themen\nself_harm_suicide|Selbstverletzung und Suizid\ndiscrimination|Diskriminierung und menschenfeindliche Sprache\nsubstances|Alkohol und andere Substanzen\neating_disorders|Essstörungen und Körperbild\ndeath_grief|Tod und Trauer\nmedical|Medizinische Eingriffe, Verletzungen und Blut\nflashing_lights|Blinkende Lichter und schnelle Bildfolgen";
 
-    public $baseUrl = 'https://video.selbstsein.events';
+    public $baseUrl = 'https://video.example.org';
     public $username = '';
     public $password = '';
     public $channelId = '';
@@ -20,8 +20,19 @@ class SettingsForm extends Model
     public $embedDomains = self::DEFAULT_EMBED_DOMAINS;
     public $directUploadSecret = '';
     public $allowDataDeletionOnDisable = false;
+    /**
+     * Zero keeps the legacy behaviour: HumHub does not reserve live slots.
+     */
+    public $maxConcurrentLiveStreams = 0;
+    public $publicLiveUsername = '';
+    public $publicLivePassword = '';
+    public $publicLiveChannelId = '';
+    public $publicLiveWaitingTitle = 'Live-Kanal';
+    public $publicLiveWaitingDescription = 'Hier erscheinen öffentliche Livestreams. Termine: https://example.org';
+    public $publicCalendarUrl = 'https://example.org';
     private $hasSavedPassword = false;
     private $hasSavedDirectUploadSecret = false;
+    private $hasSavedPublicLivePassword = false;
 
     public function rules(): array
     {
@@ -36,6 +47,10 @@ class SettingsForm extends Model
             ['password', 'validatePassword'],
             ['directUploadSecret', 'validateDirectUploadSecret'],
             ['channelId', 'integer', 'min' => 1],
+            ['maxConcurrentLiveStreams', 'integer', 'min' => 0, 'max' => 1000],
+            [['publicLiveUsername', 'publicLivePassword', 'publicLiveWaitingTitle', 'publicLiveWaitingDescription', 'publicCalendarUrl'], 'string', 'max' => 10000],
+            ['publicLiveChannelId', 'integer', 'min' => 1],
+            ['publicCalendarUrl', 'url', 'validSchemes' => ['https']],
             ['deleteRemote', 'boolean'],
             ['allowDataDeletionOnDisable', 'boolean'],
         ];
@@ -55,6 +70,7 @@ class SettingsForm extends Model
         $this->channelId = $settings->get('channelId', '');
         $this->deleteRemote = (bool) $settings->get('deleteRemote', true);
         $this->allowDataDeletionOnDisable = (bool) $settings->get('allowDataDeletionOnDisable', false);
+        $this->maxConcurrentLiveStreams = (int) $settings->get('maxConcurrentLiveStreams', 0);
         $this->warningCategories = $settings->get('warningCategories', self::DEFAULT_WARNING_CATEGORIES);
         $this->embedDomains = $settings->get('embedDomains', self::DEFAULT_EMBED_DOMAINS);
         $savedDirectSecret = (string) $settings->get('directUploadSecret', '');
@@ -63,6 +79,17 @@ class SettingsForm extends Model
             $settings->set('directUploadSecret', CredentialVault::encrypt($savedDirectSecret));
         }
         $this->directUploadSecret = '';
+        $this->publicLiveUsername = (string) $settings->get('publicLiveUsername', '');
+        $savedPublicPassword = (string) $settings->get('publicLivePassword', '');
+        $this->hasSavedPublicLivePassword = $savedPublicPassword !== '';
+        if ($savedPublicPassword !== '' && !CredentialVault::isEncrypted($savedPublicPassword)) {
+            $settings->set('publicLivePassword', CredentialVault::encrypt($savedPublicPassword));
+        }
+        $this->publicLivePassword = '';
+        $this->publicLiveChannelId = (string) $settings->get('publicLiveChannelId', '');
+        $this->publicLiveWaitingTitle = (string) $settings->get('publicLiveWaitingTitle', $this->publicLiveWaitingTitle);
+        $this->publicLiveWaitingDescription = (string) $settings->get('publicLiveWaitingDescription', $this->publicLiveWaitingDescription);
+        $this->publicCalendarUrl = (string) $settings->get('publicCalendarUrl', $this->publicCalendarUrl);
     }
 
     public function saveSettings(): void
@@ -76,17 +103,26 @@ class SettingsForm extends Model
         $settings->set('channelId', (string) $this->channelId);
         $settings->set('deleteRemote', (bool) $this->deleteRemote);
         $settings->set('allowDataDeletionOnDisable', (bool) $this->allowDataDeletionOnDisable);
+        $settings->set('maxConcurrentLiveStreams', (int) $this->maxConcurrentLiveStreams);
         $settings->set('warningCategories', trim($this->warningCategories));
         $settings->set('embedDomains', implode("\n", self::normalizeEmbedDomains($this->embedDomains)));
         if ($this->directUploadSecret !== '') {
             $settings->set('directUploadSecret', CredentialVault::encrypt($this->directUploadSecret));
         }
+        $settings->set('publicLiveUsername', trim($this->publicLiveUsername));
+        if ($this->publicLivePassword !== '') {
+            $settings->set('publicLivePassword', CredentialVault::encrypt($this->publicLivePassword));
+        }
+        $settings->set('publicLiveChannelId', (string) $this->publicLiveChannelId);
+        $settings->set('publicLiveWaitingTitle', trim($this->publicLiveWaitingTitle));
+        $settings->set('publicLiveWaitingDescription', trim($this->publicLiveWaitingDescription));
+        $settings->set('publicCalendarUrl', trim($this->publicCalendarUrl));
     }
 
     public function validatePassword($attribute): void
     {
         if (!$this->hasSavedPassword && trim((string) $this->$attribute) === '') {
-            $this->addError($attribute, 'Bitte hinterlege das Passwort des technischen PeerTube-Benutzers.');
+            $this->addError($attribute, 'Bitte hinterlege das Passwort des technischen Videokontos.');
         }
     }
 
@@ -102,6 +138,21 @@ class SettingsForm extends Model
     public static function getDirectUploadSecret(): string
     {
         return CredentialVault::decrypt((string) Yii::$app->getModule('peertube')->settings->get('directUploadSecret', ''));
+    }
+
+    public static function publicLiveProfile(): array
+    {
+        $settings = Yii::$app->getModule('peertube')->settings;
+        $profile = [
+            'baseUrl' => rtrim((string) $settings->get('baseUrl', ''), '/'),
+            'username' => trim((string) $settings->get('publicLiveUsername', '')),
+            'password' => CredentialVault::decrypt((string) $settings->get('publicLivePassword', '')),
+            'channelId' => (int) $settings->get('publicLiveChannelId', 0),
+        ];
+        if ($profile['baseUrl'] === '' || $profile['username'] === '' || $profile['password'] === '' || $profile['channelId'] < 1) {
+            throw new \RuntimeException('Der öffentliche Live-Kanal ist noch nicht vollständig eingerichtet. Bitte hinterlege im Backend Benutzername, Passwort und Kanal-ID des öffentlichen Videokontos.');
+        }
+        return $profile;
     }
 
     public function validateWarningCategories($attribute): void

@@ -1,9 +1,9 @@
 <?php
 
-namespace selfsein\peertube\integration\calendar;
+namespace community\videolibrary\integration\calendar;
 
 use humhub\modules\calendar\interfaces\CalendarTypeIF;
-use selfsein\peertube\Events;
+use community\videolibrary\Events;
 
 class LiveCalendarType implements CalendarTypeIF
 {

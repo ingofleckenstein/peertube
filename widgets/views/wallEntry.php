@@ -1,6 +1,6 @@
 <?php
 
-use selfsein\peertube\widgets\Player;
+use community\videolibrary\widgets\Player;
 use yii\helpers\Html;
 
 $description = (string) $media->description;

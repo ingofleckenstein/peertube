@@ -1,9 +1,9 @@
 <?php
 
-namespace selfsein\peertube\components;
+namespace community\videolibrary\components;
 
 use humhub\modules\content\services\ContentSearchService;
-use selfsein\peertube\models\Media;
+use community\videolibrary\models\Media;
 use Yii;
 
 /** Synchronizes PeerTube WebVTT captions into a searchable HumHub media post. */
@@ -41,7 +41,7 @@ class TranscriptService
                 $vtt = $client->downloadCaption((string) $caption['captionPath'], $password);
                 [$cues, $text] = self::parseWebVtt($vtt);
                 if (!$cues || $text === '') {
-                    throw new \RuntimeException('PeerTube hat keine verwendbaren Zeitmarken geliefert.');
+                    throw new \RuntimeException('Der Videoserver hat keine verwendbaren Zeitmarken geliefert.');
                 }
 
                 $media->updateAttributes([
@@ -78,7 +78,7 @@ class TranscriptService
                             'transcript_checked_at' => $now,
                         ], ['id' => (int) $media->id]);
                         Yii::warning([
-                            'message' => 'PeerTube-Transkription konnte nicht angefordert werden.',
+                            'message' => 'Die Transkription konnte nicht angefordert werden.',
                             'mediaId' => (int) $media->id,
                             'exception' => get_class($exception),
                         ], 'peertube.transcript');
@@ -92,7 +92,7 @@ class TranscriptService
             // A temporary PeerTube outage must not expose API responses or
             // permanently mark a still-processing transcription as failed.
             Yii::warning([
-                'message' => 'PeerTube-Transkript konnte nicht geprüft werden.',
+                'message' => 'Das Transkript konnte nicht geprüft werden.',
                 'mediaId' => (int) $media->id,
                 'exception' => get_class($exception),
             ], 'peertube.transcript');
