@@ -150,6 +150,14 @@ class PeerTubeClient
             $fields['thumbnailfile'] = new \CURLFile($thumbnail['path'], $thumbnail['mimeType'], $thumbnail['name']);
         }
         $this->request('PUT', '/api/v1/videos/' . rawurlencode($id), $fields, $token, true);
+        if (trim($description) === '') {
+            // JSON null clears inherited text; protected updates require passwords.
+            $this->requestJson('PUT', '/api/v1/videos/' . rawurlencode($id), [
+                'description' => null,
+                'privacy' => 5,
+                'videoPasswords' => [$videoPassword],
+            ], $token);
+        }
         $this->restrictEmbedToHumHub($id, $token);
     }
 
@@ -166,13 +174,20 @@ class PeerTubeClient
         // PeerTube rejects that field during creation. A finished replay, on
         // the other hand, inherits the waiting channel's text. It must be
         // explicitly cleared so HumHub can verify and import the replay.
-        if (trim($description) !== '' || $clearEmptyDescription) {
+        if (trim($description) !== '') {
             $fields['description'] = $description;
         }
         if ($thumbnail) {
             $fields['thumbnailfile'] = new \CURLFile($thumbnail['path'], $thumbnail['mimeType'], $thumbnail['name']);
         }
-        $this->request('PUT', '/api/v1/videos/' . rawurlencode($id), $fields, $this->accessToken(), true);
+        $token = $this->accessToken();
+        $this->request('PUT', '/api/v1/videos/' . rawurlencode($id), $fields, $token, true);
+        if ($clearEmptyDescription && trim($description) === '') {
+            $this->requestJson('PUT', '/api/v1/videos/' . rawurlencode($id), [
+                'description' => null,
+                'privacy' => 1,
+            ], $token);
+        }
     }
 
     public function protectExisting(string $id, string $videoPassword): void
@@ -294,9 +309,7 @@ class PeerTubeClient
             // A public permanent source has a deliberately public replay. The
             // internal source stays private until HumHub imports it.
             'replaySettings[privacy]' => $public ? '1' : '3',
-            // PeerTube SMALL_LATENCY: about 15 seconds and no P2P buffering.
-            // This is the best fit for interactive community livestreams.
-            'latencyMode' => '3',
+            // Use the PeerTube server's default latency mode.
         ];
         if (!$public) {
             $fields['videoPasswords[0]'] = $videoPassword;
@@ -304,19 +317,7 @@ class PeerTubeClient
         if (trim($description) !== '') {
             $fields['description'] = $description;
         }
-        try {
-            $result = $this->request('POST', '/api/v1/videos/live', $fields, $token, true);
-        } catch (RuntimeException $exception) {
-            if (!str_contains($exception->getMessage(), 'Custom latency mode') && !str_contains($exception->getMessage(), 'latency mode')) {
-                throw $exception;
-            }
-            // Some PeerTube instances expose the setting in the UI but forbid
-            // custom latency modes for API clients. Fall back to the normal
-            // mode instead of making livestream creation fail.
-            Yii::warning('PeerTube erlaubt keine geringe Live-Latenz; Standardmodus wird verwendet.', 'peertube');
-            $fields['latencyMode'] = '1';
-            $result = $this->request('POST', '/api/v1/videos/live', $fields, $token, true);
-        }
+        $result = $this->request('POST', '/api/v1/videos/live', $fields, $token, true);
         $video = $result['video'] ?? $result;
         $id = (string) ($video['uuid'] ?? $video['id'] ?? '');
         if ($id === '') {
@@ -337,20 +338,6 @@ class PeerTubeClient
     public function getLiveInfo(string $id): array
     {
         return $this->request('GET', '/api/v1/videos/live/' . rawurlencode($id), null, $this->accessToken());
-    }
-
-    public function tryUseSmallLiveLatency(string $id): bool
-    {
-        try {
-            $this->request('PUT', '/api/v1/videos/live/' . rawurlencode($id), ['latencyMode' => '3'], $this->accessToken());
-            return true;
-        } catch (RuntimeException $exception) {
-            if (!str_contains($exception->getMessage(), 'Custom latency mode') && !str_contains($exception->getMessage(), 'latency mode')) {
-                throw $exception;
-            }
-            Yii::warning('PeerTube erlaubt keine geringe Live-Latenz; die bestehende Live-Quelle bleibt im Standardmodus.', 'peertube');
-            return false;
-        }
     }
 
     public function getLiveSessions(string $id): array

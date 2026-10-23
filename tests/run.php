@@ -97,6 +97,7 @@ namespace {
         $fields = $GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS];
         check(trim($description) === '' ? !isset($fields['description']) : $fields['description'] === $description, 'Live description omission / preservation');
         check($fields['privacy'] === '5' && $fields['videoPasswords[0]'] === 'test-password', 'Password protection retained');
+        check(!array_key_exists('latencyMode', $fields), 'Live creation uses server default latency');
     }
     foreach (['d', 'ab', str_repeat('x', 10001)] as $invalidDescription) {
         $GLOBALS['requests'] = [];
@@ -107,8 +108,16 @@ namespace {
     $fields = $GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS];
     check(!isset($fields['description']), 'Empty description stays omitted for a waiting public live source');
     $GLOBALS['requests'] = []; $client->updatePublic('test-id', 'Test', '', null, true);
-    $fields = $GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS];
-    check(array_key_exists('description', $fields) && $fields['description'] === '', 'Empty replay description explicitly clears inherited waiting text');
+    $fields = json_decode($GLOBALS['requests'][1]->options[CURLOPT_POSTFIELDS], true);
+    check(array_key_exists('description', $fields) && $fields['description'] === null && $fields['privacy'] === 1, 'Public replay clears description with JSON null');
+    foreach (['', '  '] as $emptyDescription) {
+        $GLOBALS['requests'] = []; $client->update('test-id', 'Test', $emptyDescription, 'test-password');
+        $fields = json_decode($GLOBALS['requests'][1]->options[CURLOPT_POSTFIELDS], true);
+        check(array_key_exists('description', $fields) && $fields['description'] === null, 'Protected replay clears inherited description');
+        check($fields['privacy'] === 5 && $fields['videoPasswords'] === ['test-password'], 'Password protection preserved');
+    }
+    $GLOBALS['requests'] = []; $client->update('test-id', 'Test', 'Description', 'test-password');
+    check($GLOBALS['requests'][0]->options[CURLOPT_POSTFIELDS]['description'] === 'Description', 'Nonempty description preserved');
     check(str_contains(\community\videolibrary\components\LiveError::message(new \RuntimeException('max_user_lives_limit_reached')), 'technischen Videokontos'), 'User live quota explanation');
     check(str_contains(\community\videolibrary\components\LiveError::message(new \RuntimeException('max_instance_lives_limit_reached')), 'Videoservers'), 'Server live quota explanation');
     check(!str_contains(\community\videolibrary\components\LiveError::message(new \RuntimeException('secret-payload')), 'secret-payload'), 'No raw remote errors in UI');

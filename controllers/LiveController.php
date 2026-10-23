@@ -333,7 +333,6 @@ class LiveController extends ContentContainerController
         if ($source) {
             try {
                 $client->update((string)$source->peertube_uuid, $form->title, (string)$form->description, $source->getVideoPassword());
-                $client->tryUseSmallLiveLatency((string)$source->peertube_uuid);
                 return $source;
             } catch (\Throwable $exception) {
                 if (!\community\videolibrary\components\LiveError::isPeerTubeNotFound($exception)) {

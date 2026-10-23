@@ -10,10 +10,16 @@ Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betrieb
 
 | Bestandteil | Stand / Voraussetzung |
 | --- | --- |
-| Dieses HumHub-Modul | **2.10.1** laut `module.json` |
+| Dieses HumHub-Modul | **2.11.0** laut `module.json` |
 | HumHub | Referenz **CE 1.18.5**; Metadatenminimum **1.18.3** |
 | PeerTube-Server | Referenz **8.2.4**; bisherige Entwicklung auf 8.2.x ausgerichtet |
 | PeerTube-Begleitplugin | **1.2.1**, für Direktupload auf PeerTube installieren |
+
+## Version 2.11.0: Aufzeichnungen mit leerer Beschreibung und Standardlatenz
+
+Fertige Livestream-Aufzeichnungen mit leerer Beschreibung werden zuverlässig übernommen: Geerbte PeerTube-Beschreibungen werden ausdrücklich mit JSON `null` gelöscht. Bei geschützten Videos werden die bestehenden Videopasswörter mitgesendet; Sichtbarkeit und Zugriffsschutz bleiben erhalten. Dies gilt auch für das Leeren einer Beschreibung beim Bearbeiten geschützter Medien. Öffentliche Aufzeichnungen verwenden denselben Löschmechanismus ohne Passwortschutz.
+
+Neue Livequellen verwenden die Latenzvorgabe des PeerTube-Servers. Bestehende Quellen werden nicht mehr auf geringe Latenz umgestellt; die dadurch verursachte Ablehnung und Warnung entfallen. Keine Datenbankmigration erforderlich.
 
 ## Version 2.10.1: Bootstrap-Kompatibilität nach Namespace-Update
 
@@ -225,7 +231,7 @@ Beim normalen Deaktivieren bleiben die lokalen Daten erhalten (`Module::disable(
 - Vollständige Datenlöschung ist nur nach ausdrücklicher Aktivierung in der Danger Zone möglich.
 ## Version 2.7.2
 
-- PeerTube-Instanzen ohne freigegebenen Niedriglatenzmodus fallen automatisch auf den Standardmodus zurück.
+- Livestreams verwenden die Latenzvorgabe des PeerTube-Servers. Das Modul fordert keinen Niedriglatenzmodus an.
 - Livestreams können ein eigenes Ankündigungsbild erhalten.
 - Derselbe Stream-Beitrag zeigt vor Beginn die Ankündigung, während der Sendung den Live-Player und danach die gespeicherte Aufzeichnung.
 - Die Hotfix-Konfiguration enthält keine veralteten Kalender-Callbacks mehr.
