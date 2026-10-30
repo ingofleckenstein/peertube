@@ -101,7 +101,7 @@ class Media extends ContentActiveRecord
     {
         $container = $this->content->container;
         $parameters = [
-            '/videos/media/view',
+            '/peertube/media/view',
             'cguid' => $container->guid,
             'id' => $this->id,
         ];
