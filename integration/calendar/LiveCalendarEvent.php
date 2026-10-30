@@ -3,17 +3,17 @@
 namespace community\videolibrary\integration\calendar;
 
 use DateTime;
-use humhub\modules\calendar\interfaces\CalendarEventIF;
+use humhub\modules\calendar\interfaces\event\CalendarEventIF;
 use humhub\modules\content\components\ActiveQueryContent;
 use community\videolibrary\models\LiveSession;
 use Yii;
 
 class LiveCalendarEvent extends LiveSession implements CalendarEventIF
 {
-    public static function getObjectModel() { return LiveSession::class; }
+    public static function getObjectModel(): string { return LiveSession::class; }
     public static function find() { return new ActiveQueryContent(static::class); }
     public function getUid() { return 'peertube-live-' . $this->id; }
-    public function getType() { return new LiveCalendarType(); }
+    public function getEventType() { return new LiveCalendarType(); }
     public function isAllDay() { return false; }
     public function getStartDateTime() { return new DateTime((string)$this->start_datetime); }
     public function getEndDateTime() { return new DateTime((string)$this->end_datetime); }

@@ -10,6 +10,7 @@ use Yii;
 class TranscriptService
 {
     private const CHECK_INTERVAL = 15;
+    private const GENERATION_WAIT_NOTICE = 1800;
     private const MAX_CUES = 20000;
     private const MAX_TEXT_LENGTH = 1024 * 1024;
 
@@ -28,7 +29,7 @@ class TranscriptService
         }
 
         if (!$this->shouldCheck($media)) {
-            return $this->processing();
+            return $this->waitingStatus($media);
         }
 
         $now = date('Y-m-d H:i:s');
@@ -98,6 +99,21 @@ class TranscriptService
             ], 'peertube.transcript');
         }
 
+        return $this->waitingStatus($media);
+    }
+
+    private function waitingStatus(Media $media): array
+    {
+        if ((string) $media->transcript_status === 'unavailable') {
+            return $this->unavailable('Für dieses Video ist derzeit kein Transkript verfügbar.');
+        }
+        $requestedAt = strtotime((string) $media->transcript_requested_at) ?: 0;
+        if ((string) $media->transcript_status === 'generating'
+            && $requestedAt > 0 && time() - $requestedAt >= self::GENERATION_WAIT_NOTICE) {
+            // No job status is available here: a long wait is not proof of failure.
+            // Keep checking captions on later visits so delayed results can recover.
+            return $this->unavailable('Das Transkript ist noch nicht verfügbar. Die Verarbeitung dauert länger oder konnte nicht abgeschlossen werden. Bitte versuche es später erneut.');
+        }
         return $this->processing();
     }
 
