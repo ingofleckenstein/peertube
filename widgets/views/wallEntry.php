@@ -10,6 +10,15 @@ $renderText = static function (string $text): string {
     return trim($text) === '' ? '' : '<p>' . nl2br(Html::encode(trim($text))) . '</p>';
 };
 $player = Player::widget(['media' => $media]);
+$this->registerCss(<<<'CSS'
+.peertube-wall-entry > .ratio,
+.peertube-wall-entry > .pt-transcript-dock {
+    width: 100%;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+CSS);
 ?>
 <div class="peertube-wall-entry">
     <h4><?= Html::encode($media->title) ?></h4>
