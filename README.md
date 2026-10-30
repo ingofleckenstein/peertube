@@ -10,10 +10,16 @@ Stand: 7. September 2026. HumHub **Community Edition 1.18.5** ist in der Betrieb
 
 | Bestandteil | Stand / Voraussetzung |
 | --- | --- |
-| Dieses HumHub-Modul | **2.11.0** laut `module.json` |
+| Dieses HumHub-Modul | **2.11.1** laut `module.json` |
 | HumHub | Referenz **CE 1.18.5**; Metadatenminimum **1.18.3** |
 | PeerTube-Server | Referenz **8.2.4**; bisherige Entwicklung auf 8.2.x ausgerichtet |
 | PeerTube-Begleitplugin | **1.2.1**, für Direktupload auf PeerTube installieren |
+
+## Version 2.11.1: Responsive Stream-Videos und Mediathek-Aktionen
+
+Videos in Stream-Beiträgen werden zentriert und auf maximal 800 Pixel Breite begrenzt (450 Pixel Höhe bei 16:9). Auf schmalen Bildschirmen passen sie sich weiterhin der verfügbaren Breite an. Die Transkriptleiste folgt derselben Begrenzung.
+
+Die Mediathek verwendet einen flexiblen Kopfbereich, der die Höhe der Aktionsbuttons berücksichtigt. Auf dem Handy stehen die Aktionen in einer eigenen Zeile und können bei Bedarf umbrechen, ohne die Such- und Ordnerbuttons zu überlagern. Keine Datenbankmigration erforderlich.
 
 ## Version 2.11.0: Aufzeichnungen mit leerer Beschreibung und Standardlatenz
 
